@@ -7,18 +7,20 @@ import { hapticFeedback } from "@/lib/telegram"
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
-    // Начальная вибрация
-    hapticFeedback('medium')
+    // Мощная начальная вибрация
+    hapticFeedback('heavy')
     
-    // Лёгкая вибрация каждые 800мс
+    // Средняя вибрация каждые 500мс (чаще и сильнее)
     const vibrationInterval = setInterval(() => {
-      hapticFeedback('light')
-    }, 800)
+      hapticFeedback('medium')
+    }, 500)
     
     // Завершение
     const timer = setTimeout(() => {
       clearInterval(vibrationInterval)
-      hapticFeedback('success') // Финальная вибрация успеха
+      // Двойная финальная вибрация
+      hapticFeedback('heavy')
+      setTimeout(() => hapticFeedback('success'), 100)
       onComplete()
     }, 3000)
     
