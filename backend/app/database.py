@@ -2,14 +2,21 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-# Fallback to current user if postgres role fails in dev
-user = os.getenv("USER", "postgres")
-DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql+asyncpg://{user}:password@localhost:5432/ramus_db")
+# Get DATABASE_URL from environment
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# If the above default connection string fails, you might need to adjust it manually 
-# to match your local postgres setup (e.g., remove password if ident auth is used).
+if DATABASE_URL:
+    # Railway gives postgres:// but SQLAlchemy needs postgresql+asyncpg://
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    # Local development fallback
+    user = os.getenv("USER", "postgres")
+    DATABASE_URL = f"postgresql+asyncpg://{user}:password@localhost:5432/ramus_db"
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
