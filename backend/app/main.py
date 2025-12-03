@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin, ModelView
@@ -169,6 +170,11 @@ admin.add_view(OrderAdmin)
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
+    
+    # Start bot polling in background (only if token is set)
+    from .bot import bot, dp
+    if bot:
+        asyncio.create_task(dp.start_polling(bot))
 
 @app.get("/")
 async def root():
