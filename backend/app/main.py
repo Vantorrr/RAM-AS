@@ -204,6 +204,19 @@ async def create_product(product: schemas.ProductCreate, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail="Product with this part number already exists")
     return await crud.create_product(db=db, product=product)
 
+async def get_all_subcategory_ids(db: AsyncSession, category_id: int) -> List[int]:
+    """Получить все ID подкатегорий рекурсивно"""
+    result = await db.execute(
+        select(models.Category.id).where(models.Category.parent_id == category_id)
+    )
+    child_ids = [row[0] for row in result.fetchall()]
+    
+    all_ids = [category_id]
+    for child_id in child_ids:
+        all_ids.extend(await get_all_subcategory_ids(db, child_id))
+    
+    return all_ids
+
 @app.get("/products/", response_model=List[schemas.Product])
 async def read_products(
     skip: int = 0, 
@@ -219,7 +232,9 @@ async def read_products(
     query = select(models.Product)
     
     if category_id:
-        query = query.where(models.Product.category_id == category_id)
+        # Получаем все подкатегории рекурсивно
+        all_category_ids = await get_all_subcategory_ids(db, category_id)
+        query = query.where(models.Product.category_id.in_(all_category_ids))
     
     if search:
         search_filter = f"%{search}%"
@@ -265,7 +280,9 @@ async def get_products_count(
     query = select(func.count(models.Product.id))
     
     if category_id:
-        query = query.where(models.Product.category_id == category_id)
+        # Получаем все подкатегории рекурсивно
+        all_category_ids = await get_all_subcategory_ids(db, category_id)
+        query = query.where(models.Product.category_id.in_(all_category_ids))
     
     if search:
         search_filter = f"%{search}%"

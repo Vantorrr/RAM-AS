@@ -38,6 +38,18 @@ export default function RootLayout({
           src="https://telegram.org/js/telegram-web-app.js" 
           strategy="beforeInteractive"
         />
+        <Script id="tg-expand" strategy="beforeInteractive">
+          {`
+            (function() {
+              if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+                window.Telegram.WebApp.setHeaderColor('#0a0a0a');
+                window.Telegram.WebApp.setBackgroundColor('#0a0a0a');
+              }
+            })();
+          `}
+        </Script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
@@ -46,7 +58,9 @@ export default function RootLayout({
           paddingBottom: "env(safe-area-inset-bottom)",
           paddingLeft: "env(safe-area-inset-left)",
           paddingRight: "env(safe-area-inset-right)",
-          minHeight: "100vh",
+          minHeight: "100dvh",
+          height: "100dvh",
+          overflow: "hidden",
         }}
       >
         {children}

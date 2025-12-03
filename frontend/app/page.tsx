@@ -77,8 +77,8 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
-      <main className="flex-1">
+    <div className="h-full bg-background text-foreground flex flex-col font-sans selection:bg-primary/30 overflow-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {renderView()}
       </main>
       {!showCheckout && !selectedProductId && (

@@ -136,15 +136,13 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         setIsSearchMode(false)
         setSearchQuery("")
         
-        if (cat.children && cat.children.length > 0) {
-            setBreadcrumbs([...breadcrumbs, cat])
-            setSelectedCategory(cat)
-        } else {
-            setBreadcrumbs([...breadcrumbs, cat])
-            setSelectedCategory(cat)
-            setCurrentPage(0)
-            fetchProducts(cat.id, undefined, 0, false)
-        }
+        // Всегда устанавливаем категорию
+        setBreadcrumbs([...breadcrumbs, cat])
+        setSelectedCategory(cat)
+        setCurrentPage(0)
+        
+        // Всегда загружаем товары категории (включая товары из подкатегорий)
+        fetchProducts(cat.id, undefined, 0, false)
     }
 
     // Handle search

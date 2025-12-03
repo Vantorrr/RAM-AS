@@ -92,12 +92,21 @@ export function initTelegramWebApp() {
     // Сообщаем Telegram что приложение готово
     tg.ready()
     
-    // Разворачиваем на весь экран
+    // Разворачиваем на весь экран НЕМЕДЛЕННО
     tg.expand()
     
+    // Повторный expand через небольшую задержку для надёжности
+    setTimeout(() => {
+      tg.expand()
+    }, 100)
+    
     // Устанавливаем цвета под нашу тему
-    tg.setHeaderColor('#0a0a0a')
-    tg.setBackgroundColor('#0a0a0a')
+    try {
+      tg.setHeaderColor('#0a0a0a')
+      tg.setBackgroundColor('#0a0a0a')
+    } catch (e) {
+      console.warn('Could not set TG colors:', e)
+    }
     
     return tg
   }
