@@ -3,13 +3,29 @@
 import { useEffect } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
+import { hapticFeedback } from "@/lib/telegram"
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
+    // Начальная вибрация
+    hapticFeedback('medium')
+    
+    // Лёгкая вибрация каждые 800мс
+    const vibrationInterval = setInterval(() => {
+      hapticFeedback('light')
+    }, 800)
+    
+    // Завершение
     const timer = setTimeout(() => {
+      clearInterval(vibrationInterval)
+      hapticFeedback('success') // Финальная вибрация успеха
       onComplete()
-    }, 3000) // 3 seconds splash
-    return () => clearTimeout(timer)
+    }, 3000)
+    
+    return () => {
+      clearTimeout(timer)
+      clearInterval(vibrationInterval)
+    }
   }, [onComplete])
 
   return (
