@@ -1,10 +1,20 @@
 "use client"
 
-import { useState } from "react"
-import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info } from "lucide-react"
+import { useState, useEffect } from "react"
+import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram"
+
+interface TelegramUser {
+  id: number
+  first_name: string
+  last_name?: string
+  username?: string
+  photo_url?: string
+  is_premium?: boolean
+}
 
 // Реквизиты компании
 const REQUISITES = {
@@ -21,6 +31,14 @@ const REQUISITES = {
 export function ProfileView() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showRequisites, setShowRequisites] = useState(false)
+  const [tgUser, setTgUser] = useState<TelegramUser | null>(null)
+
+  useEffect(() => {
+    const user = getTelegramUser()
+    if (user) {
+      setTgUser(user)
+    }
+  }, [])
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text)
@@ -160,12 +178,36 @@ export function ProfileView() {
       <Card className="bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 border-white/10">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/30">
-              <User className="h-8 w-8 text-primary" />
-            </div>
+            {tgUser?.photo_url ? (
+              <img 
+                src={tgUser.photo_url} 
+                alt="Avatar" 
+                className="h-16 w-16 rounded-full border-2 border-primary/30 object-cover"
+              />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/30">
+                <User className="h-8 w-8 text-primary" />
+              </div>
+            )}
             <div>
-              <h2 className="text-lg font-bold">Гость</h2>
-              <p className="text-sm text-muted-foreground">Telegram WebApp</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold">
+                  {tgUser ? `${tgUser.first_name}${tgUser.last_name ? ` ${tgUser.last_name}` : ''}` : 'Гость'}
+                </h2>
+                {tgUser?.is_premium && (
+                  <Crown className="h-4 w-4 text-yellow-400" />
+                )}
+              </div>
+              {tgUser?.username ? (
+                <p className="text-sm text-muted-foreground">@{tgUser.username}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Telegram WebApp</p>
+              )}
+              {tgUser && (
+                <Badge className="mt-1 bg-green-500/20 text-green-400 border-0 text-xs">
+                  ✓ Авторизован
+                </Badge>
+              )}
             </div>
           </div>
         </CardContent>
