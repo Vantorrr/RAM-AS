@@ -3,8 +3,12 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, InputMediaPhoto
 from dotenv import load_dotenv
+import os
+
+# Путь к изображению
+BOT_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "bot_image.jpg")
 
 load_dotenv()
 
@@ -90,6 +94,28 @@ def get_main_keyboard(is_admin_user: bool = False):
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+# Функция для редактирования сообщения (текст или подпись к фото)
+async def edit_message_smart(message: types.Message, text: str, reply_markup: InlineKeyboardMarkup):
+    try:
+        # Если есть фото, меняем caption
+        if message.photo:
+            await message.edit_caption(
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=reply_markup
+            )
+        # Иначе меняем текст
+        else:
+            await message.edit_text(
+                text=text,
+                parse_mode="HTML",
+                reply_markup=reply_markup
+            )
+    except Exception as e:
+        print(f"Error editing message: {e}")
+        # Если не получилось отредактировать, отправляем новое (на всякий случай)
+        # Но это крайний случай, обычно не нужно
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
@@ -111,11 +137,22 @@ async def cmd_start(message: types.Message):
     if is_admin_user:
         welcome_text += "\n\n🔐 <i>Ты админ! Доступна панель управления.</i>"
     
-    await message.answer(
-        welcome_text,
-        parse_mode="HTML",
-        reply_markup=get_main_keyboard(is_admin_user)
-    )
+    # Отправляем фото с текстом
+    try:
+        await message.answer_photo(
+            photo=FSInputFile(BOT_IMAGE_PATH),
+            caption=welcome_text,
+            parse_mode="HTML",
+            reply_markup=get_main_keyboard(is_admin_user)
+        )
+    except Exception as e:
+        print(f"Error sending photo: {e}")
+        # Fallback на текст, если фото не найдено
+        await message.answer(
+            welcome_text,
+            parse_mode="HTML",
+            reply_markup=get_main_keyboard(is_admin_user)
+        )
 
 @dp.callback_query(F.data == "requisites")
 async def show_requisites(callback: types.CallbackQuery):
@@ -123,11 +160,7 @@ async def show_requisites(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
-    await callback.message.edit_text(
-        COMPANY_REQUISITES,
-        parse_mode="HTML",
-        reply_markup=back_kb
-    )
+    await edit_message_smart(callback.message, COMPANY_REQUISITES, back_kb)
     await callback.answer()
 
 @dp.callback_query(F.data == "about")
@@ -156,11 +189,7 @@ async def show_about(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
-    await callback.message.edit_text(
-        about_text,
-        parse_mode="HTML",
-        reply_markup=back_kb
-    )
+    await edit_message_smart(callback.message, about_text, back_kb)
     await callback.answer()
 
 @dp.callback_query(F.data == "support")
@@ -187,11 +216,7 @@ async def show_support(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
-    await callback.message.edit_text(
-        support_text,
-        parse_mode="HTML",
-        reply_markup=back_kb
-    )
+    await edit_message_smart(callback.message, support_text, back_kb)
     await callback.answer()
 
 @dp.callback_query(F.data == "back_to_menu")
@@ -212,11 +237,7 @@ async def back_to_menu(callback: types.CallbackQuery):
     if is_admin_user:
         welcome_text += "\n\n🔐 <i>Ты админ! Доступна панель управления.</i>"
     
-    await callback.message.edit_text(
-        welcome_text,
-        parse_mode="HTML",
-        reply_markup=get_main_keyboard(is_admin_user)
-    )
+    await edit_message_smart(callback.message, welcome_text, get_main_keyboard(is_admin_user))
     await callback.answer()
 
 @dp.message(Command("requisites"))
@@ -229,11 +250,21 @@ async def cmd_requisites(message: types.Message):
         [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
-    await message.answer(
-        COMPANY_REQUISITES,
-        parse_mode="HTML",
-        reply_markup=back_kb
-    )
+    # Для команды requisites отправляем фото тоже, или просто текст
+    # Лучше фото для консистентности
+    try:
+        await message.answer_photo(
+            photo=FSInputFile(BOT_IMAGE_PATH),
+            caption=COMPANY_REQUISITES,
+            parse_mode="HTML",
+            reply_markup=back_kb
+        )
+    except:
+        await message.answer(
+            COMPANY_REQUISITES,
+            parse_mode="HTML",
+            reply_markup=back_kb
+        )
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
