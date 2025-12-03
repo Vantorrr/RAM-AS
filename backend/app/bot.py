@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-webapp-url.vercel.app")
-ADMIN_WEBAPP_URL = os.getenv("ADMIN_WEBAPP_URL", WEBAPP_URL.replace("vercel.app", "vercel.app/admin") if WEBAPP_URL else "https://your-webapp-url.vercel.app/admin")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://alert-joy-production.up.railway.app")
+ADMIN_WEBAPP_URL = os.getenv("ADMIN_WEBAPP_URL", "https://alert-joy-production.up.railway.app/admin")
 ADMIN_CHAT_IDS = os.getenv("ADMIN_CHAT_IDS", "").split(",")
 
 # Также поддержка одного ID для обратной совместимости
@@ -74,98 +74,64 @@ async def notify_new_order(order_data: dict):
     except Exception as e:
         print(f"Error sending notification: {e}")
 
+def get_main_keyboard(is_admin_user: bool = False):
+    """Красивые инлайн кнопки"""
+    buttons = [
+        [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [
+            InlineKeyboardButton(text="💳 Реквизиты", callback_data="requisites"),
+            InlineKeyboardButton(text="📍 О нас", callback_data="about")
+        ],
+        [InlineKeyboardButton(text="📞 Поддержка", callback_data="support")],
+    ]
+    
+    if is_admin_user:
+        buttons.append([InlineKeyboardButton(text="🔧 Админ-панель", web_app=WebAppInfo(url=ADMIN_WEBAPP_URL))])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    # Проверяем, личный ли это чат
     if message.chat.type != "private":
         return
     
     user_id = message.from_user.id
+    is_admin_user = is_admin(user_id)
     
-    # Формируем клавиатуру в зависимости от того, админ или нет
-    if is_admin(user_id):
-        # Клавиатура для АДМИНА
-        kb = [
-            [types.KeyboardButton(text="🔥 ОТКРЫТЬ КАТАЛОГ 🔥", web_app=WebAppInfo(url=WEBAPP_URL))],
-            [types.KeyboardButton(text="🔧 АДМИН-ПАНЕЛЬ", web_app=WebAppInfo(url=ADMIN_WEBAPP_URL))],
-            [types.KeyboardButton(text="📦 Мои заказы"), types.KeyboardButton(text="📞 Поддержка")]
-        ]
-        extra_text = "\n\n🔐 <b>Ты админ!</b> Нажми 🔧 для управления товарами."
-    else:
-        # Клавиатура для обычного пользователя
-        kb = [
-            [types.KeyboardButton(text="🔥 ОТКРЫТЬ КАТАЛОГ 🔥", web_app=WebAppInfo(url=WEBAPP_URL))],
-            [types.KeyboardButton(text="📦 Мои заказы"), types.KeyboardButton(text="📞 Поддержка")]
-        ]
-        extra_text = ""
-    
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    
-    await message.answer_photo(
-        photo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Ram_trucks_logo.png/640px-Ram_trucks_logo.png",
-        caption=(
-            f"👋 <b>Салют, {message.from_user.first_name}!</b>\n\n"
-            "Добро пожаловать в <b>RAM US Auto Parts</b> — место, где твоя тачка получит лучшее.\n\n"
-            "🛠 <b>Что у нас есть:</b>\n"
-            "— Оригинальные запчасти из США\n"
-            "— Амортизаторы, тормоза, подвеска\n"
-            "— Цены, которые не кусаются (по курсу)\n\n"
-            f"👇 <b>Жми кнопку ниже и выбирай детали по-мужски!</b>{extra_text}"
-        ),
-        parse_mode="HTML",
-        reply_markup=keyboard
+    welcome_text = (
+        f"👋 <b>Привет, {message.from_user.first_name}!</b>\n\n"
+        "🚗 Добро пожаловать в <b>RAM US Auto Parts</b>\n\n"
+        "🇺🇸 Оригинальные запчасти из США\n"
+        "📦 13,000+ товаров в каталоге\n"
+        "🚚 Доставка по всей России\n"
+        "💳 Оплата картой или по реквизитам\n\n"
+        "👇 <b>Выбери действие:</b>"
     )
-
-@dp.message(F.text == "📦 Мои заказы")
-async def my_orders(message: types.Message):
-    if message.chat.type != "private":
-        return
-    await message.answer("📦 История твоих заказов пока пуста.\n\nСделай первый заказ в каталоге! 🛒")
-
-@dp.message(F.text == "📞 Поддержка")
-async def support(message: types.Message):
-    if message.chat.type != "private":
-        return
     
-    # Инлайн кнопки
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Реквизиты для оплаты", callback_data="requisites")],
-        [InlineKeyboardButton(text="📍 О компании", callback_data="about")],
-        [InlineKeyboardButton(text="📞 Связаться с менеджером", url="https://t.me/manager_username")]
-    ])
+    if is_admin_user:
+        welcome_text += "\n\n🔐 <i>Ты админ! Доступна панель управления.</i>"
     
     await message.answer(
-        "📞 <b>Поддержка RAM US</b>\n\n"
-        "Выбери нужный раздел:\n\n"
-        "💳 <b>Реквизиты</b> — для оплаты по счёту\n"
-        "📍 <b>О компании</b> — информация о нас\n"
-        "📞 <b>Менеджер</b> — задать вопрос\n",
+        welcome_text,
         parse_mode="HTML",
-        reply_markup=inline_kb
+        reply_markup=get_main_keyboard(is_admin_user)
     )
 
 @dp.callback_query(F.data == "requisites")
 async def show_requisites(callback: types.CallbackQuery):
-    """Показать реквизиты компании"""
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_support")]
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
     await callback.message.edit_text(
         COMPANY_REQUISITES,
         parse_mode="HTML",
-        reply_markup=inline_kb
+        reply_markup=back_kb
     )
     await callback.answer()
 
 @dp.callback_query(F.data == "about")
 async def show_about(callback: types.CallbackQuery):
-    """Показать информацию о компании"""
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Реквизиты", callback_data="requisites")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_support")]
-    ])
-    
     about_text = """
 🚗 <b>RAM US Auto Parts</b>
 
@@ -185,53 +151,92 @@ async def show_about(callback: types.CallbackQuery):
 Только оригинальные детали с документами.
 """
     
-    await callback.message.edit_text(
-        about_text,
-        parse_mode="HTML",
-        reply_markup=inline_kb
-    )
-    await callback.answer()
-
-@dp.callback_query(F.data == "back_to_support")
-async def back_to_support(callback: types.CallbackQuery):
-    """Вернуться в меню поддержки"""
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Реквизиты для оплаты", callback_data="requisites")],
-        [InlineKeyboardButton(text="📍 О компании", callback_data="about")],
-        [InlineKeyboardButton(text="📞 Связаться с менеджером", url="https://t.me/manager_username")]
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
     await callback.message.edit_text(
-        "📞 <b>Поддержка RAM US</b>\n\n"
-        "Выбери нужный раздел:\n\n"
-        "💳 <b>Реквизиты</b> — для оплаты по счёту\n"
-        "📍 <b>О компании</b> — информация о нас\n"
-        "📞 <b>Менеджер</b> — задать вопрос\n",
+        about_text,
         parse_mode="HTML",
-        reply_markup=inline_kb
+        reply_markup=back_kb
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "support")
+async def show_support(callback: types.CallbackQuery):
+    support_text = """
+📞 <b>Поддержка RAM US</b>
+
+Есть вопросы? Мы на связи!
+
+📱 <b>Telegram:</b> @ram_us_support
+📧 <b>Email:</b> info@ram-us.ru
+📞 <b>Телефон:</b> +7 (812) XXX-XX-XX
+
+⏰ <b>Режим работы:</b>
+Пн-Пт: 9:00 - 20:00
+Сб: 10:00 - 18:00
+Вс: выходной
+
+Ответим в течение часа! 💪
+"""
+    
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Реквизиты", callback_data="requisites")],
+        [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
+    ])
+    
+    await callback.message.edit_text(
+        support_text,
+        parse_mode="HTML",
+        reply_markup=back_kb
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "back_to_menu")
+async def back_to_menu(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    is_admin_user = is_admin(user_id)
+    
+    welcome_text = (
+        f"👋 <b>Привет, {callback.from_user.first_name}!</b>\n\n"
+        "🚗 Добро пожаловать в <b>RAM US Auto Parts</b>\n\n"
+        "🇺🇸 Оригинальные запчасти из США\n"
+        "📦 13,000+ товаров в каталоге\n"
+        "🚚 Доставка по всей России\n"
+        "💳 Оплата картой или по реквизитам\n\n"
+        "👇 <b>Выбери действие:</b>"
+    )
+    
+    if is_admin_user:
+        welcome_text += "\n\n🔐 <i>Ты админ! Доступна панель управления.</i>"
+    
+    await callback.message.edit_text(
+        welcome_text,
+        parse_mode="HTML",
+        reply_markup=get_main_keyboard(is_admin_user)
     )
     await callback.answer()
 
 @dp.message(Command("requisites"))
 async def cmd_requisites(message: types.Message):
-    """Команда /requisites - показать реквизиты"""
     if message.chat.type != "private":
         return
     
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📍 О компании", callback_data="about")],
-        [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))]
+    back_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
     ])
     
     await message.answer(
         COMPANY_REQUISITES,
         parse_mode="HTML",
-        reply_markup=inline_kb
+        reply_markup=back_kb
     )
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
-    """Команда /admin для быстрого доступа к админке"""
     if message.chat.type != "private":
         return
     
@@ -239,24 +244,49 @@ async def cmd_admin(message: types.Message):
         await message.answer("❌ У тебя нет доступа к админ-панели.")
         return
     
-    kb = [[types.KeyboardButton(text="🔧 ОТКРЫТЬ АДМИНКУ", web_app=WebAppInfo(url=ADMIN_WEBAPP_URL))]]
-    keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, one_time_keyboard=True)
-    await message.answer("👆 Нажми кнопку для входа в админ-панель:", reply_markup=keyboard)
+    admin_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔧 Открыть админ-панель", web_app=WebAppInfo(url=ADMIN_WEBAPP_URL))],
+        [InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")]
+    ])
+    
+    await message.answer(
+        "🔧 <b>Админ-панель RAM US</b>\n\n"
+        "Здесь ты можешь:\n"
+        "• Редактировать товары\n"
+        "• Менять цены\n"
+        "• Добавлять фото\n"
+        "• Управлять рассрочкой\n\n"
+        "👇 Нажми кнопку:",
+        parse_mode="HTML",
+        reply_markup=admin_kb
+    )
 
 @dp.message(Command("myid"))
 async def cmd_myid(message: types.Message):
-    """Команда /myid - показывает ID пользователя для настройки админов"""
     await message.answer(
         f"🆔 <b>Твой Telegram ID:</b>\n<code>{message.from_user.id}</code>\n\n"
         "Отправь этот ID разработчику для добавления в админы.",
         parse_mode="HTML"
     )
 
-async def main():
+async def start_bot():
+    """Запуск бота"""
+    if not bot:
+        print("❌ Bot not configured (no token)")
+        return
+    
     logging.basicConfig(level=logging.INFO)
     print("🚀 Bot is starting... STAY TOP!")
-    print(f"📋 Admin IDs configured: {ADMIN_CHAT_IDS}")
-    await dp.start_polling(bot)
+    print(f"📋 Admin IDs: {ADMIN_CHAT_IDS}")
+    print(f"🌐 WebApp URL: {WEBAPP_URL}")
+    
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(f"❌ Bot error: {e}")
+
+async def main():
+    await start_bot()
 
 if __name__ == "__main__":
     asyncio.run(main())

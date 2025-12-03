@@ -171,10 +171,13 @@ async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
     
-    # Start bot polling in background (only if token is set)
-    from .bot import bot, dp
+    # Start bot polling in background
+    from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
     if bot:
-        asyncio.create_task(dp.start_polling(bot))
+        print(f"🤖 Starting Telegram bot...")
+        print(f"📋 Admins: {ADMIN_CHAT_IDS}")
+        print(f"🌐 WebApp: {WEBAPP_URL}")
+        asyncio.create_task(dp.start_polling(bot, skip_updates=True))
 
 @app.get("/")
 async def root():
