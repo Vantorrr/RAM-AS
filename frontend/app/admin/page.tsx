@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { 
   ArrowLeft, Search, Save, Package, DollarSign, 
   Image as ImageIcon, Percent, ShoppingCart, Users,
-  TrendingUp, Box, Edit, ChevronRight
+  TrendingUp, Box, Edit, ChevronRight, Upload
 } from "lucide-react"
 
 interface Product {
@@ -81,6 +81,32 @@ export default function AdminPage() {
     }
   }, [])
 
+  // Upload image
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editingProduct) return
+    
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    try {
+      const res = await fetch(`${API_URL}/upload/image`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        setEditingProduct({ ...editingProduct, image_url: data.url })
+        alert("✅ Фото загружено!")
+      } else {
+        alert("❌ Ошибка загрузки фото")
+      }
+    } catch (err) {
+      alert("❌ Ошибка сети")
+    }
+  }
+
   // Save product
   const handleSave = async () => {
     if (!editingProduct) return
@@ -89,16 +115,28 @@ export default function AdminPage() {
       const res = await fetch(`${API_URL}/products/${editingProduct.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingProduct)
+        body: JSON.stringify({
+          price_rub: editingProduct.price_rub,
+          stock_quantity: editingProduct.stock_quantity,
+          image_url: editingProduct.image_url,
+          is_in_stock: editingProduct.is_in_stock,
+          is_installment_available: editingProduct.is_installment_available
+        })
       })
+      
       if (res.ok) {
-        alert("✅ Сохранено!")
+        const updated = await res.json()
+        console.log("Saved:", updated)
+        alert("✅ Изменения сохранены!")
         setEditingProduct(null)
         setView('dashboard')
       } else {
-        alert("❌ Ошибка сохранения")
+        const err = await res.text()
+        console.error("Error:", err)
+        alert("❌ Ошибка сохранения: " + err)
       }
     } catch (err) {
+      console.error(err)
       alert("❌ Ошибка сети")
     } finally {
       setSaving(false)
@@ -153,14 +191,43 @@ export default function AdminPage() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
                 <ImageIcon className="h-3 w-3 inline mr-1" />
-                URL фото
+                Фото товара
               </label>
+              
+              {/* Preview */}
+              {editingProduct.image_url && (
+                <div className="mb-2 relative w-32 h-32 rounded-lg overflow-hidden bg-white/5">
+                  <img 
+                    src={editingProduct.image_url} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              {/* Upload button */}
+              <div className="flex gap-2 mb-2">
+                <label className="flex-1 cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 p-3 bg-ram-red/20 hover:bg-ram-red/30 border border-ram-red/50 rounded-lg transition-colors">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm font-medium">📷 Загрузить фото</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              
+              {/* Or enter URL */}
               <Input
                 type="url"
-                placeholder="https://..."
+                placeholder="Или вставьте URL фото..."
                 value={editingProduct.image_url || ""}
                 onChange={e => setEditingProduct({...editingProduct, image_url: e.target.value || null})}
-                className="bg-white/5 border-white/10"
+                className="bg-white/5 border-white/10 text-xs"
               />
             </div>
 
