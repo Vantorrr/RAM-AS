@@ -90,9 +90,9 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 via-black to-background" />
         
-        {/* Big Logo as background - centered and semi-transparent */}
+        {/* Big Logo as background - centered and semi-transparent with pulse */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative w-[320px] h-[320px] opacity-15">
+          <div className="relative w-[320px] h-[320px] opacity-15 animate-[pulse-logo_4s_ease-in-out_infinite]">
             <Image 
               src="/logo_new.png" 
               alt="RAM US" 

@@ -127,9 +127,30 @@
   * {
     @apply border-border;
   }
-body {
+  body {
     @apply bg-background text-foreground;
     background-image: radial-gradient(circle at 50% 0%, hsl(var(--secondary) / 0.3), transparent 70%);
     background-attachment: fixed;
+  }
+}
+
+/* Custom animations */
+@keyframes pulse-logo {
+  0%, 100% {
+    opacity: 0.12;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 20px rgba(211, 47, 47, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 40px rgba(211, 47, 47, 0.7));
   }
 }
