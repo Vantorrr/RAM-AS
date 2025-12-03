@@ -85,45 +85,94 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
 
   return (
     <div className="flex flex-col gap-6 pb-24">
-      {/* Header with Logo */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <div className="relative h-10 w-32">
-          <Image 
-            src="/logo_new.png" 
-            alt="RAM US" 
-            fill
-            className="object-contain object-left"
-            priority
-          />
+      {/* Hero Section with Big Logo Background */}
+      <div className="relative min-h-[280px] w-full overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 via-black to-background" />
+        
+        {/* Big Logo as background - centered and semi-transparent */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative w-[320px] h-[320px] opacity-15">
+            <Image 
+              src="/logo_new.png" 
+              alt="RAM US" 
+              fill
+              className="object-contain"
+              priority
+            />
+          </div>
+        </div>
+        
+        {/* Red accent glows */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(211,47,47,0.25),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_70%,rgba(211,47,47,0.1),transparent_40%)]" />
+        
+        {/* Content overlay */}
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[280px] px-6 text-center">
+          {/* Small logo at top */}
+          <div className="relative h-16 w-40 mb-4">
+            <Image 
+              src="/logo_new.png" 
+              alt="RAM US" 
+              fill
+              className="object-contain drop-shadow-[0_0_30px_rgba(211,47,47,0.5)]"
+              priority
+            />
+          </div>
+          
+          {/* Main heading */}
+          <h1 className="text-2xl font-black tracking-tight text-white mb-2">
+            Оригинальные запчасти
+          </h1>
+          <h2 className="text-3xl font-black tracking-tight mb-4">
+            из <span className="text-primary drop-shadow-[0_0_20px_rgba(211,47,47,0.8)]">США</span>
+          </h2>
+          
+          {/* Badge */}
+          <Badge className="bg-primary/20 text-primary border border-primary/30 text-xs px-4 py-1">
+            🚀 ДОСТАВКА ПО ВСЕЙ РОССИИ
+          </Badge>
+          
+          {/* Stats row */}
+          <div className="flex items-center gap-6 mt-6 text-sm">
+            <div className="text-center">
+              <div className="text-xl font-bold text-white">12+</div>
+              <div className="text-xs text-muted-foreground">лет опыта</div>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <div className="text-xl font-bold text-white">13K</div>
+              <div className="text-xs text-muted-foreground">товаров</div>
+            </div>
+            <div className="w-px h-8 bg-white/10" />
+            <div className="text-center">
+              <div className="text-xl font-bold text-white">5K+</div>
+              <div className="text-xs text-muted-foreground">клиентов</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Hero Banner */}
-      <div className="px-4">
-        <div className="relative h-36 w-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-2xl overflow-hidden">
-          {/* RAM-US Background Text */}
-          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none overflow-hidden">
-            <span className="text-[90px] font-black tracking-tighter text-white/[0.08] whitespace-nowrap translate-x-6 -translate-y-2">
-              RAM-US
-            </span>
-          </div>
-          {/* Red glow effect */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(211,47,47,0.3),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(211,47,47,0.15),transparent_50%)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-          {/* Content */}
-          <div className="relative z-10 flex flex-col justify-end h-full p-4">
-            <Badge className="w-fit mb-2 bg-primary/30 text-primary border-0 text-[10px]">
-              ДОСТАВКА ПО ВСЕЙ РОССИИ
-            </Badge>
-            <h1 className="text-xl font-black tracking-tight text-white">
-              Оригинальные запчасти из <span className="text-primary">США</span>
-            </h1>
-          </div>
+      {/* Quick Actions */}
+      <div className="px-4 -mt-2">
+        <div className="flex gap-3">
+          <Card 
+            className="flex-1 bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20 p-4 cursor-pointer hover:scale-[1.02] transition-transform"
+            onClick={onViewAllProducts}
+          >
+            <Package className="h-6 w-6 text-primary mb-2" />
+            <div className="text-sm font-bold">Каталог</div>
+            <div className="text-xs text-muted-foreground">13 000+ товаров</div>
+          </Card>
+          <Card className="flex-1 bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/20 p-4">
+            <Truck className="h-6 w-6 text-green-400 mb-2" />
+            <div className="text-sm font-bold">Доставка</div>
+            <div className="text-xs text-muted-foreground">СДЭК по РФ</div>
+          </Card>
         </div>
       </div>
 
-      {/* Quick Categories */}
+      {/* Categories */}
       <section className="px-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-white">Категории</h2>
