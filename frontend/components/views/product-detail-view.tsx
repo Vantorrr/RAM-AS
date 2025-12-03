@@ -1,0 +1,245 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { ArrowLeft, ShoppingCart, Check, Package, Truck, Shield } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useCartStore } from "@/lib/cart-store"
+import Image from "next/image"
+
+interface Product {
+  id: number
+  name: string
+  part_number: string
+  manufacturer?: string
+  description?: string
+  price_rub: number
+  price_usd?: number
+  image_url: string
+  is_in_stock: boolean
+  stock_quantity: number
+  is_installment_available?: boolean
+  is_preorder: boolean
+}
+
+interface ProductDetailViewProps {
+  productId: number
+  onBack: () => void
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+export function ProductDetailView({ productId, onBack }: ProductDetailViewProps) {
+  const [product, setProduct] = useState<Product | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [added, setAdded] = useState(false)
+  const addItem = useCartStore((state) => state.addItem)
+
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const res = await fetch(`${API_URL}/products/${productId}`)
+        if (!res.ok) throw new Error('Failed to fetch product')
+        const data = await res.json()
+        setProduct(data)
+      } catch (error) {
+        console.error("Error loading product:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProduct()
+  }, [productId])
+
+  const handleAddToCart = () => {
+    if (!product) return
+    addItem({
+      id: product.id,
+      name: product.name,
+      price_rub: product.price_rub,
+      image_url: product.image_url,
+      part_number: product.part_number,
+      is_installment_available: product.is_installment_available
+    })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 pb-24">
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 px-4 py-3">
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+        </div>
+        <div className="px-4 space-y-4">
+          <Skeleton className="aspect-square w-full bg-white/5" />
+          <Skeleton className="h-8 w-3/4 bg-white/5" />
+          <Skeleton className="h-4 w-1/2 bg-white/5" />
+          <Skeleton className="h-20 w-full bg-white/5" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4">
+        <p className="text-muted-foreground">Товар не найден</p>
+        <Button onClick={onBack} className="mt-4">Назад</Button>
+      </div>
+    )
+  }
+
+  const monthlyPayment = product.is_installment_available 
+    ? (product.price_rub / 12).toFixed(0) 
+    : null
+
+  return (
+    <div className="flex flex-col pb-32">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 px-4 py-3">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onBack}
+          className="-ml-2 text-muted-foreground hover:text-white"
+        >
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Image */}
+      <div className="relative aspect-square w-full bg-black/20">
+        <Image
+          src={product.image_url || "https://placehold.co/600x600/1a1a1a/666?text=RAM+US"}
+          alt={product.name}
+          fill
+          className="object-cover"
+        />
+        {!product.is_in_stock && (
+          <Badge variant="destructive" className="absolute top-4 right-4 shadow-lg">
+            Нет в наличии
+          </Badge>
+        )}
+        {product.is_in_stock && (
+          <Badge className="absolute top-4 right-4 bg-green-600 hover:bg-green-700 text-white shadow-lg border-0">
+            В наличии
+          </Badge>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="px-4 pt-6 space-y-6">
+        {/* Title & Price */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="outline" className="text-xs font-mono">
+              {product.part_number}
+            </Badge>
+            {product.manufacturer && (
+              <Badge variant="secondary" className="text-xs">
+                {product.manufacturer}
+              </Badge>
+            )}
+          </div>
+          <h1 className="text-2xl font-bold mb-4">{product.name}</h1>
+          
+          <div className="flex items-baseline gap-3 mb-2">
+            <span className="text-3xl font-black text-white">
+              {product.price_rub.toLocaleString('ru-RU')} ₽
+            </span>
+            {product.price_usd && (
+              <span className="text-lg text-muted-foreground">
+                ~ ${product.price_usd} USD
+              </span>
+            )}
+          </div>
+
+          {product.is_installment_available && monthlyPayment && (
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20 p-3 mt-3">
+              <p className="text-sm text-purple-400 font-medium">
+                💳 Рассрочка 0% — от {monthlyPayment} ₽/мес на 12 месяцев
+              </p>
+            </Card>
+          )}
+        </div>
+
+        {/* Description */}
+        {product.description && (
+          <div>
+            <h3 className="font-semibold mb-2">Описание</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              {product.description}
+            </p>
+          </div>
+        )}
+
+        {/* Features */}
+        <div className="grid grid-cols-1 gap-3">
+          <Card className="bg-white/5 border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <Package className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Оригинальная запчасть</p>
+                <p className="text-xs text-muted-foreground">Прямые поставки из США</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <Truck className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="font-medium">Быстрая доставка</p>
+                <p className="text-xs text-muted-foreground">По всей России через СДЭК</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Shield className="h-5 w-5 text-green-400" />
+              </div>
+              <div>
+                <p className="font-medium">Гарантия качества</p>
+                <p className="text-xs text-muted-foreground">Проверка перед отправкой</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Fixed Bottom Button */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-white/10 p-4 z-40">
+        <Button 
+          size="lg" 
+          className="w-full bg-primary hover:bg-primary/90 text-white font-bold shadow-lg shadow-primary/30 transition-all hover:shadow-primary/50 hover:scale-[1.02] active:scale-95"
+          onClick={handleAddToCart}
+          disabled={added || !product.is_in_stock}
+        >
+          {added ? (
+            <>
+              <Check className="mr-2 h-5 w-5" />
+              Добавлено в корзину
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="mr-2 h-5 w-5" />
+              {product.is_in_stock ? "Добавить в корзину" : "Нет в наличии"}
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
