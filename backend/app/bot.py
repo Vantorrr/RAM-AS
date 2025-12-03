@@ -102,7 +102,7 @@ async def cmd_start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     
     await message.answer_photo(
-        photo="https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/ram.svg",
+        photo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Ram_trucks_logo.png/640px-Ram_trucks_logo.png",
         caption=(
             f"👋 <b>Салют, {message.from_user.first_name}!</b>\n\n"
             "Добро пожаловать в <b>RAM US Auto Parts</b> — место, где твоя тачка получит лучшее.\n\n"
