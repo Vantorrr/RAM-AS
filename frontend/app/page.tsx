@@ -8,10 +8,20 @@ import { CartView } from "@/components/views/cart-view"
 import { CheckoutView } from "@/components/views/checkout-view"
 import { ProductDetailView } from "@/components/views/product-detail-view"
 import { HomeView } from "@/components/views/home-view"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { initTelegramWebApp } from "@/lib/telegram"
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true)
+  
+  // Инициализация Telegram WebApp
+  useEffect(() => {
+    const tg = initTelegramWebApp()
+    if (tg) {
+      console.log("Telegram WebApp initialized")
+      console.log("User:", tg.initDataUnsafe?.user)
+    }
+  }, [])
   const [activeTab, setActiveTab] = useState("home")
   const [showCheckout, setShowCheckout] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
