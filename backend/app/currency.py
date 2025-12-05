@@ -54,3 +54,5 @@ async def convert_rub_to_usd(rub_amount: float) -> float:
     rate = await get_usd_rate()
     return rub_amount / rate
 
+
+

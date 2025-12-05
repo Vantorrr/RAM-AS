@@ -13,3 +13,5 @@ def inspect_excel(file_path):
 if __name__ == "__main__":
     inspect_excel("прайс.xls")
 
+
+

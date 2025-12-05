@@ -243,3 +243,5 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
   )
 }
 
+
+
