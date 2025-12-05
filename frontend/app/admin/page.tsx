@@ -5,11 +5,13 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { 
   ArrowLeft, Search, Save, Package, DollarSign, 
   Image as ImageIcon, Percent, ShoppingCart, Users,
-  TrendingUp, Box, Edit, ChevronRight, Upload
+  TrendingUp, Box, Edit, ChevronRight, Upload, AlertCircle, RefreshCw
 } from "lucide-react"
+import { API_URL } from "@/lib/config"
 
 interface Product {
   id: number
@@ -28,42 +30,49 @@ interface Stats {
   totalOrders: number
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
 export default function AdminPage() {
   const [view, setView] = useState<'dashboard' | 'search' | 'edit'>('dashboard')
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
+  const [dashboardLoading, setDashboardLoading] = useState(true)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalOrders: 0 })
+  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Load dashboard data
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const [productsRes, countRes] = await Promise.all([
-          fetch(`${API_URL}/products/?limit=5`),
-          fetch(`${API_URL}/products/count`)
-        ])
-        
-        if (productsRes.ok) {
-          const data = await productsRes.json()
-          setRecentProducts(data)
-        }
-        
-        if (countRes.ok) {
-          const countData = await countRes.json()
-          setStats(prev => ({ ...prev, totalProducts: countData.count }))
-        }
-      } catch (err) {
-        console.error(err)
+  const loadDashboard = useCallback(async () => {
+    setDashboardLoading(true)
+    setError(null)
+    try {
+      // Добавляем таймаут или обработку ошибок
+      const [productsRes, countRes] = await Promise.all([
+        fetch(`${API_URL}/products/?limit=5`).catch(err => { throw new Error("Failed to fetch products") }),
+        fetch(`${API_URL}/products/count`).catch(err => { throw new Error("Failed to fetch count") })
+      ])
+      
+      if (productsRes.ok) {
+        const data = await productsRes.json()
+        setRecentProducts(data)
       }
+      
+      if (countRes.ok) {
+        const countData = await countRes.json()
+        setStats(prev => ({ ...prev, totalProducts: countData.count }))
+      }
+    } catch (err) {
+      console.error(err)
+      setError("Не удалось подключиться к серверу. Проверьте соединение.")
+    } finally {
+      setDashboardLoading(false)
     }
-    loadDashboard()
   }, [])
+
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
 
   // Search products
   const handleSearch = useCallback(async () => {
@@ -338,94 +347,146 @@ export default function AdminPage() {
 
   // Dashboard view
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
-      <h1 className="text-xl font-bold mb-4">🔧 Админ-панель</h1>
+    <div className="min-h-screen bg-background text-foreground p-4 pb-24">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-ram-red bg-clip-text text-transparent">
+          🔧 RAM Admin
+        </h1>
+        <Button variant="ghost" size="icon" onClick={loadDashboard} disabled={dashboardLoading}>
+          <RefreshCw className={`h-5 w-5 ${dashboardLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {error && (
+        <Card className="bg-red-500/10 border-red-500/20 p-4 mb-6 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-red-400" />
+          <p className="text-sm text-red-300">{error}</p>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border-blue-500/30 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/20">
-              <Package className="h-5 w-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Товаров</p>
-            </div>
+        <Card className="bg-gradient-to-br from-white/5 to-white/10 border-white/10 p-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Package className="h-12 w-12" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Товаров</p>
+            {dashboardLoading ? (
+              <Skeleton className="h-8 w-20 bg-white/10" />
+            ) : (
+              <p className="text-2xl font-bold text-white">{stats.totalProducts.toLocaleString()}</p>
+            )}
           </div>
         </Card>
         
-        <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10 border-green-500/30 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-green-500/20">
-              <ShoppingCart className="h-5 w-5 text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.totalOrders}</p>
-              <p className="text-xs text-muted-foreground">Заказов</p>
-            </div>
+        <Card className="bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20 p-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <ShoppingCart className="h-12 w-12 text-primary" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-xs text-primary/80 uppercase tracking-wider mb-1">Заказов</p>
+            {dashboardLoading ? (
+              <Skeleton className="h-8 w-16 bg-primary/10" />
+            ) : (
+              <p className="text-2xl font-bold text-primary">{stats.totalOrders}</p>
+            )}
           </div>
         </Card>
       </div>
 
       {/* Quick Actions */}
-      <h2 className="font-bold mb-3">⚡ Быстрые действия</h2>
-      <div className="space-y-2 mb-6">
+      <h2 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+        ⚡ Действия
+      </h2>
+      <div className="space-y-3 mb-8">
         <Card 
-          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all"
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
           onClick={() => setView('search')}
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/20">
-                <Search className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20 shadow-lg shadow-blue-500/10">
+                <Search className="h-6 w-6 text-blue-400 group-hover:scale-110 transition-transform" />
               </div>
               <div>
-                <p className="font-medium">Найти и редактировать товар</p>
-                <p className="text-xs text-muted-foreground">Изменить цену, фото, рассрочку</p>
+                <p className="font-bold text-lg">Поиск товаров</p>
+                <p className="text-xs text-muted-foreground">Редактирование цен, фото, остатков</p>
               </div>
             </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
           </div>
         </Card>
 
-        <Card className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all">
+        <Card className="bg-white/5 border-white/10 p-4 opacity-75 cursor-not-allowed">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/20">
-                <TrendingUp className="h-5 w-5 text-amber-400" />
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <TrendingUp className="h-6 w-6 text-amber-400/50" />
               </div>
               <div>
-                <p className="font-medium">Массовое изменение цен</p>
-                <p className="text-xs text-muted-foreground">Скоро...</p>
+                <p className="font-medium text-muted-foreground">Массовое управление</p>
+                <p className="text-xs text-muted-foreground/50">Цены, категории, импорт</p>
               </div>
             </div>
-            <Badge className="bg-amber-500/20 text-amber-400 border-0 text-[10px]">Soon</Badge>
+            <Badge variant="outline" className="text-[10px] border-white/10 text-muted-foreground">Скоро</Badge>
           </div>
         </Card>
       </div>
 
       {/* Recent Products */}
-      <h2 className="font-bold mb-3">📦 Последние товары</h2>
+      <h2 className="font-bold mb-3 flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground">
+        📦 Недавно добавленные
+      </h2>
       <div className="space-y-2">
-        {recentProducts.map(product => (
-          <Card 
-            key={product.id}
-            onClick={() => { setEditingProduct(product); setView('edit') }}
-            className="bg-white/5 border-white/10 p-3 cursor-pointer hover:bg-white/10 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                <Package className="h-4 w-4 text-muted-foreground" />
+        {dashboardLoading ? (
+          // Skeletons
+          Array(3).fill(0).map((_, i) => (
+            <Card key={i} className="bg-white/5 border-white/10 p-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-lg bg-white/10" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4 bg-white/10" />
+                  <Skeleton className="h-3 w-1/2 bg-white/10" />
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{product.name}</p>
-                <p className="text-xs text-muted-foreground">{product.part_number}</p>
+            </Card>
+          ))
+        ) : recentProducts.length > 0 ? (
+          recentProducts.map(product => (
+            <Card 
+              key={product.id}
+              onClick={() => { setEditingProduct(product); setView('edit') }}
+              className="bg-white/5 border-white/10 p-3 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {product.image_url ? (
+                    <img src={product.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{product.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{product.part_number}</p>
+                </div>
+                <div className="text-right">
+                    <p className="font-bold text-sm">{product.price_rub?.toLocaleString()} ₽</p>
+                    {product.stock_quantity > 0 ? (
+                        <span className="text-[10px] text-green-400">{product.stock_quantity} шт.</span>
+                    ) : (
+                        <span className="text-[10px] text-red-400">Нет</span>
+                    )}
+                </div>
               </div>
-              <p className="font-bold text-sm">{product.price_rub?.toLocaleString()} ₽</p>
+            </Card>
+          ))
+        ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm bg-white/5 rounded-lg border border-white/5">
+                Нет товаров
             </div>
-          </Card>
-        ))}
+        )}
       </div>
     </div>
   )
