@@ -51,10 +51,10 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
     >
       <div className="relative h-32 w-full bg-black/20 shrink-0">
         <Image
-          src={product.image_url || "/placeholder.svg"}
+          src={product.image_url || "/logo_new.png"}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          className={`transition-transform duration-500 group-hover:scale-110 ${!product.image_url ? "object-contain p-6 opacity-40" : "object-cover"}`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         

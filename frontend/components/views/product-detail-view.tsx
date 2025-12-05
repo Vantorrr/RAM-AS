@@ -113,12 +113,12 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
       </div>
 
       {/* Image */}
-      <div className="relative aspect-square w-full bg-black/20">
+      <div className="relative aspect-square w-full bg-black/20 flex items-center justify-center">
         <Image
-          src={product.image_url || "https://placehold.co/600x600/1a1a1a/666?text=RAM+US"}
+          src={product.image_url || "/logo_new.png"}
           alt={product.name}
           fill
-          className="object-cover"
+          className={`transition-all duration-500 ${!product.image_url ? "object-contain p-12 opacity-50" : "object-cover"}`}
         />
         {!product.is_in_stock && (
           <Badge variant="destructive" className="absolute top-4 right-4 shadow-lg">
