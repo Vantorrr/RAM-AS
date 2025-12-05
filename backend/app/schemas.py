@@ -80,6 +80,7 @@ class OrderCreate(BaseModel):
 
 class OrderItem(OrderItemBase):
     id: int
+    product: Optional[Product] = None
     class Config:
         from_attributes = True
 

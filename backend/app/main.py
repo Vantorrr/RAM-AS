@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin, ModelView
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine
@@ -387,6 +388,16 @@ async def get_usd_rate():
     """Получить текущий курс USD/RUB"""
     rate = await currency.get_usd_rate()
     return {"rate": rate, "currency": "USD/RUB"}
+
+@app.get("/orders/user/{user_telegram_id}", response_model=List[schemas.Order])
+async def get_user_orders(user_telegram_id: str, db: AsyncSession = Depends(database.get_db)):
+    result = await db.execute(
+        select(models.Order)
+        .where(models.Order.user_telegram_id == user_telegram_id)
+        .order_by(models.Order.created_at.desc())
+        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
+    )
+    return result.scalars().all()
 
 @app.post("/orders/", response_model=schemas.Order)
 async def create_order(

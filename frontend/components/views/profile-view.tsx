@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown } from "lucide-react"
+import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getTelegramUser, getTelegramWebApp } from "@/lib/telegram"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getTelegramUser } from "@/lib/telegram"
+import { API_URL } from "@/lib/config"
 
 interface TelegramUser {
   id: number
@@ -14,6 +16,27 @@ interface TelegramUser {
   username?: string
   photo_url?: string
   is_premium?: boolean
+}
+
+interface Product {
+  id: number
+  name: string
+  image_url: string | null
+}
+
+interface OrderItem {
+  id: number
+  product: Product | null
+  quantity: number
+  price_at_purchase: number
+}
+
+interface Order {
+  id: number
+  total_amount: number
+  status: string
+  created_at: string
+  items: OrderItem[]
 }
 
 // Реквизиты компании
@@ -31,14 +54,34 @@ const REQUISITES = {
 export function ProfileView() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showRequisites, setShowRequisites] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
 
   useEffect(() => {
     const user = getTelegramUser()
     if (user) {
       setTgUser(user)
+      fetchOrders(user.id)
     }
   }, [])
+
+  const fetchOrders = async (userId: number) => {
+    setLoadingOrders(true)
+    try {
+      const res = await fetch(`${API_URL}/orders/user/${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setOrders(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch orders:", err)
+    } finally {
+      setLoadingOrders(false)
+    }
+  }
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text)
@@ -61,9 +104,10 @@ export function ProfileView() {
     </Button>
   )
 
+  // Экран Реквизитов
   if (showRequisites) {
     return (
-      <div className="flex flex-col gap-4 pb-24 px-4 pt-4">
+      <div className="flex flex-col gap-4 pb-24 px-4 pt-4 min-h-screen bg-background">
         <div className="flex items-center gap-3 mb-2">
           <Button variant="ghost" size="icon" onClick={() => setShowRequisites(false)}>
             <ChevronRight className="h-5 w-5 rotate-180" />
@@ -150,19 +194,6 @@ export function ProfileView() {
           </CardContent>
         </Card>
 
-        {/* Адрес */}
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/20">
-              <Info className="h-4 w-4 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Адрес</p>
-              <p className="font-medium text-sm">{REQUISITES.address}</p>
-            </div>
-          </CardContent>
-        </Card>
-
         <p className="text-xs text-muted-foreground text-center mt-2">
           Нажмите на иконку копирования, чтобы скопировать значение
         </p>
@@ -170,6 +201,64 @@ export function ProfileView() {
     )
   }
 
+  // Экран Политики конфиденциальности
+  if (showPrivacy) {
+    return (
+      <div className="flex flex-col gap-4 pb-24 px-4 pt-4 min-h-screen bg-background">
+        <div className="flex items-center gap-3 mb-2">
+          <Button variant="ghost" size="icon" onClick={() => setShowPrivacy(false)}>
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </Button>
+          <h1 className="text-xl font-bold">Политика конфиденциальности</h1>
+        </div>
+
+        <div className="space-y-4 text-sm text-muted-foreground">
+            <Card className="bg-white/5 border-white/10 p-4">
+                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-green-400" />
+                    1. Общие положения
+                </h3>
+                <p>Мы, RAM US Auto Parts, серьезно относимся к конфиденциальности ваших данных. Мы собираем только ту информацию, которая необходима для оформления и доставки заказа.</p>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10 p-4">
+                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
+                    <User className="h-4 w-4 text-blue-400" />
+                    2. Какие данные мы собираем
+                </h3>
+                <ul className="list-disc list-inside space-y-1 ml-1">
+                    <li>Имя пользователя Telegram</li>
+                    <li>Номер телефона (для связи по заказу)</li>
+                    <li>Адрес доставки</li>
+                </ul>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10 p-4">
+                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    3. Использование данных
+                </h3>
+                <p>Ваши данные используются исключительно для:</p>
+                <ul className="list-disc list-inside space-y-1 ml-1 mt-1">
+                    <li>Обработки заказов</li>
+                    <li>Связи с вами по статусу доставки</li>
+                    <li>Улучшения качества сервиса</li>
+                </ul>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10 p-4">
+                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-amber-400" />
+                    4. Безопасность
+                </h3>
+                <p>Мы не передаем ваши данные третьим лицам, за исключением курьерских служб (СДЭК, Почта России) для выполнения доставки вашего заказа.</p>
+            </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Главный экран Профиля
   return (
     <div className="flex flex-col gap-4 pb-24 px-4 pt-4">
       <h1 className="text-xl font-bold mb-2">Профиль</h1>
@@ -214,20 +303,94 @@ export function ProfileView() {
       </Card>
 
       {/* Orders */}
-      <Card className="bg-white/5 border-white/10">
-        <CardHeader className="pb-2">
+      <Card className="bg-white/5 border-white/10 overflow-hidden">
+        <CardHeader className="pb-2 bg-white/5">
           <CardTitle className="text-base flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            Мои заказы
+            История заказов
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Package className="h-10 w-10 text-muted-foreground mb-2 opacity-50" />
-            <p className="text-sm text-muted-foreground">Заказов пока нет</p>
-            <p className="text-xs text-muted-foreground/70">Сделайте первый заказ в каталоге</p>
-          </div>
-        </CardContent>
+        <div className="divide-y divide-white/5">
+          {loadingOrders ? (
+            <div className="p-4 space-y-3">
+                <Skeleton className="h-12 w-full bg-white/5" />
+                <Skeleton className="h-12 w-full bg-white/5" />
+            </div>
+          ) : orders.length > 0 ? (
+            orders.map(order => (
+                <div key={order.id} className="bg-black/20">
+                    <div 
+                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                        onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                    >
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm">Заказ #{order.id}</span>
+                                <Badge variant="outline" className="text-[10px] border-white/10">
+                                    {new Date(order.created_at).toLocaleDateString()}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-muted-foreground">{order.items.length} товаров</span>
+                                <span className="text-xs font-bold text-primary">
+                                    {order.total_amount.toLocaleString()} ₽
+                                </span>
+                            </div>
+                        </div>
+                        {expandedOrderId === order.id ? (
+                            <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        )}
+                    </div>
+                    
+                    {/* Expanded Details */}
+                    {expandedOrderId === order.id && (
+                        <div className="p-4 pt-0 bg-black/40 border-t border-white/5 animate-in slide-in-from-top-2">
+                            <div className="space-y-3 mt-3">
+                                {order.items.map(item => (
+                                    <div key={item.id} className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded bg-white/10 flex-shrink-0 overflow-hidden">
+                                            {item.product?.image_url ? (
+                                                <img src={item.product.image_url} className="w-full h-full object-cover" alt="" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package className="h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium truncate">{item.product?.name || "Товар удален"}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {item.quantity} шт x {item.price_at_purchase.toLocaleString()} ₽
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                                    <span className="text-xs text-muted-foreground">Статус:</span>
+                                    <Badge className={
+                                        order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                        order.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                                        'bg-white/10 text-white'
+                                    }>
+                                        {order.status === 'pending' ? 'В обработке' : 
+                                         order.status === 'paid' ? 'Оплачен' : order.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center p-4">
+              <Package className="h-10 w-10 text-muted-foreground mb-2 opacity-50" />
+              <p className="text-sm text-muted-foreground">Заказов пока нет</p>
+              <p className="text-xs text-muted-foreground/70">История ваших покупок будет здесь</p>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Quick Actions */}
@@ -250,15 +413,18 @@ export function ProfileView() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white/5 border-white/10 cursor-pointer hover:bg-white/10 transition-all">
+        <Card 
+          className="bg-white/5 border-white/10 cursor-pointer hover:bg-white/10 transition-all"
+          onClick={() => setShowPrivacy(true)}
+        >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/20">
-                <Phone className="h-5 w-5 text-blue-400" />
+                <Shield className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="font-medium">Связаться с нами</p>
-                <p className="text-xs text-muted-foreground">Telegram, WhatsApp</p>
+                <p className="font-medium">Конфиденциальность</p>
+                <p className="text-xs text-muted-foreground">Политика обработки данных</p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
