@@ -46,10 +46,10 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
 
   return (
     <Card 
-      className="group relative overflow-hidden border-white/5 bg-white/5 backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.5)] cursor-pointer"
+      className="group relative overflow-hidden border-white/5 bg-white/5 backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col h-full"
       onClick={() => onClick?.(product.id)}
     >
-      <div className="aspect-square relative bg-black/20">
+      <div className="relative h-32 w-full bg-black/20 shrink-0">
         <Image
           src={product.image_url || "/placeholder.svg"}
           alt={product.name}
@@ -59,39 +59,40 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         
         {!product.is_in_stock && (
-             <Badge variant="destructive" className="absolute top-2 right-2 shadow-lg">Нет в наличии</Badge>
+             <Badge variant="destructive" className="absolute top-1.5 right-1.5 shadow-lg text-[10px] px-1.5 h-5">Нет</Badge>
         )}
         {product.is_in_stock && (
-             <Badge className="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white shadow-lg border-0">В наличии</Badge>
+             <Badge className="absolute top-1.5 right-1.5 bg-green-600 hover:bg-green-700 text-white shadow-lg border-0 text-[10px] px-1.5 h-5">В наличии</Badge>
         )}
         
         {product.is_installment_available && (
-            <Badge className="absolute bottom-2 left-2 bg-purple-600 hover:bg-purple-700 text-white shadow-lg border-0 gap-1 pl-1 pr-2">
-                <Percent className="h-3 w-3" /> Рассрочка 0%
+            <Badge className="absolute bottom-1.5 left-1.5 bg-purple-600 hover:bg-purple-700 text-white shadow-lg border-0 gap-0.5 pl-1 pr-1.5 text-[10px] h-5">
+                <Percent className="h-2.5 w-2.5" /> 0%
             </Badge>
         )}
       </div>
       
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-mono text-muted-foreground bg-white/5 px-1.5 py-0.5 rounded">{product.part_number}</p>
+      <CardContent className="p-3 flex flex-col flex-grow">
+        <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[9px] font-mono text-muted-foreground bg-white/5 px-1 py-0.5 rounded truncate max-w-[80px]">{product.part_number}</p>
         </div>
-        <h3 className="font-bold text-sm leading-tight line-clamp-2 min-h-[2.5rem] mb-3 group-hover:text-primary transition-colors">{product.name}</h3>
-        <div className="flex flex-col">
+        <h3 className="font-bold text-[13px] leading-[1.2] line-clamp-2 mb-auto group-hover:text-primary transition-colors h-[2.4em]">{product.name}</h3>
+        
+        <div className="flex flex-col mt-3 gap-1">
             <div className="flex items-baseline gap-2">
-                <span className="text-lg font-black text-white">{product.price_rub.toLocaleString('ru-RU')} ₽</span>
+                <span className="text-base font-black text-white">{product.price_rub.toLocaleString('ru-RU')} ₽</span>
             </div>
             {product.is_installment_available ? (
-                 <span className="text-xs text-purple-400 font-medium">от {monthlyPayment.toLocaleString('ru-RU')} ₽ / мес</span>
+                 <span className="text-[10px] text-purple-400 font-medium truncate">от {monthlyPayment.toLocaleString('ru-RU')} ₽/мес</span>
             ) : product.price_usd && (
-                <span className="text-xs text-muted-foreground/70">~ ${product.price_usd} USD</span>
+                <span className="text-[10px] text-muted-foreground/70">~ ${product.price_usd}</span>
             )}
         </div>
       </CardContent>
       
-      <CardFooter className="p-4 pt-0">
+      <CardFooter className="p-3 pt-0 mt-auto">
         <Button 
-          className="w-full gap-2 bg-primary font-bold text-white shadow-[0_0_20px_-5px_rgba(211,47,47,0.5)] hover:bg-red-600 hover:shadow-[0_0_25px_-5px_rgba(211,47,47,0.7)] active:scale-95 transition-all"
+          className="w-full h-8 text-xs gap-1.5 bg-primary font-bold text-white shadow-[0_0_20px_-5px_rgba(211,47,47,0.5)] hover:bg-red-600 hover:shadow-[0_0_25px_-5px_rgba(211,47,47,0.7)] active:scale-95 transition-all"
           onClick={(e) => {
             e.stopPropagation()
             handleAddToCart()
@@ -100,12 +101,12 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         >
           {added ? (
             <>
-              <Check className="h-4 w-4" />
-              ДОБАВЛЕНО
+              <Check className="h-3 w-3" />
+              В КОРЗИНЕ
             </>
           ) : (
             <>
-              <ShoppingCart className="h-4 w-4" />
+              <ShoppingCart className="h-3 w-3" />
               КУПИТЬ
             </>
           )}
