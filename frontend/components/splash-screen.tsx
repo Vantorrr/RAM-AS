@@ -59,6 +59,53 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 className="object-contain"
                 priority
             />
+
+            {/* Glowing Eyes Animation */}
+            {/* Left Eye */}
+            <motion.div
+                className="absolute top-[35%] left-[22%] w-12 h-12 bg-red-600 rounded-full blur-xl mix-blend-screen"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ 
+                    opacity: [0, 0, 0.8, 0.4, 0.9],
+                    scale: [0.5, 0.5, 1.2, 1, 1.1] 
+                }}
+                transition={{ 
+                    delay: 0.8, // Wait for logo to appear
+                    duration: 2.5, 
+                    times: [0, 0.1, 0.2, 0.5, 1],
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                }}
+            />
+            <motion.div
+                className="absolute top-[38%] left-[26%] w-3 h-3 bg-white rounded-full blur-[2px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0, 1, 0.5, 0.8] }}
+                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+            />
+
+            {/* Right Eye */}
+            <motion.div
+                className="absolute top-[35%] right-[22%] w-12 h-12 bg-red-600 rounded-full blur-xl mix-blend-screen"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ 
+                    opacity: [0, 0, 0.8, 0.4, 0.9],
+                    scale: [0.5, 0.5, 1.2, 1, 1.1] 
+                }}
+                transition={{ 
+                    delay: 0.8, 
+                    duration: 2.5, 
+                    times: [0, 0.1, 0.2, 0.5, 1],
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                }}
+            />
+            <motion.div
+                className="absolute top-[38%] right-[26%] w-3 h-3 bg-white rounded-full blur-[2px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0, 1, 0.5, 0.8] }}
+                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+            />
         </motion.div>
         
          {/* Loading Bar */}
