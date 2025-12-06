@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Package, CreditCard, Truck } from "lucide-react"
+import { ArrowLeft, Package, CreditCard, Truck, MapPin, Check } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 
 interface CheckoutViewProps {
   onBack: () => void
@@ -19,6 +20,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
   const { items, getTotalPrice, clearCart } = useCartStore()
   const [loading, setLoading] = useState(false)
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery')
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -37,7 +39,9 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
         user_telegram_id: "web_user", // TODO: Get from Telegram WebApp
         user_name: formData.name,
         user_phone: formData.phone,
-        delivery_address: formData.address,
+        delivery_address: deliveryMethod === 'pickup' 
+          ? "Самовывоз (г. Санкт-Петербург)" 
+          : formData.address,
         total_amount: totalPrice,
         items: items.map(item => ({
           product_id: item.id,
@@ -79,7 +83,7 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
         </Button>
         <div>
           <h2 className="text-lg font-bold leading-none">Оформление заказа</h2>
-          <p className="text-xs text-muted-foreground">Заполните данные для доставки</p>
+          <p className="text-xs text-muted-foreground">Заполните данные</p>
         </div>
       </div>
 
@@ -136,26 +140,72 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
           </div>
         </div>
 
-        {/* Delivery Info */}
+        {/* Delivery Method */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
               <span className="text-sm font-bold">2</span>
             </div>
-            <h3 className="font-semibold">Доставка</h3>
+            <h3 className="font-semibold">Способ получения</h3>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Адрес доставки</Label>
-            <Textarea
-              id="address"
-              placeholder="Город, улица, дом, квартира"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              required
-              className="bg-white/5 border-white/10 min-h-[80px]"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div 
+              className={cn(
+                "cursor-pointer rounded-xl border p-4 transition-all flex flex-col items-center justify-center gap-2 text-center",
+                deliveryMethod === 'delivery' 
+                  ? "bg-primary/20 border-primary text-primary" 
+                  : "bg-white/5 border-white/10 hover:bg-white/10"
+              )}
+              onClick={() => setDeliveryMethod('delivery')}
+            >
+              <Truck className="h-6 w-6" />
+              <span className="font-bold text-sm">Доставка</span>
+            </div>
+            <div 
+              className={cn(
+                "cursor-pointer rounded-xl border p-4 transition-all flex flex-col items-center justify-center gap-2 text-center",
+                deliveryMethod === 'pickup' 
+                  ? "bg-primary/20 border-primary text-primary" 
+                  : "bg-white/5 border-white/10 hover:bg-white/10"
+              )}
+              onClick={() => setDeliveryMethod('pickup')}
+            >
+              <MapPin className="h-6 w-6" />
+              <span className="font-bold text-sm">Самовывоз</span>
+            </div>
           </div>
+
+          {deliveryMethod === 'delivery' ? (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+              <Label htmlFor="address">Адрес доставки</Label>
+              <Textarea
+                id="address"
+                placeholder="Город, улица, дом, квартира"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                required
+                className="bg-white/5 border-white/10 min-h-[80px]"
+              />
+            </div>
+          ) : (
+            <Card className="bg-white/5 border-white/10 p-4 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <p className="font-bold">Пункт выдачи RAM US</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    г. Санкт-Петербург<br />
+                    (адрес уточнит менеджер)
+                  </p>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-green-400">
+                    <Check className="h-3 w-3" />
+                    Бесплатно
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="comment">Комментарий (необязательно)</Label>
