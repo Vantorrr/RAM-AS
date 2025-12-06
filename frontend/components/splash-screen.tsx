@@ -7,6 +7,11 @@ import { hapticFeedback } from "@/lib/telegram"
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
+    // Звук мотора (попытка воспроизведения)
+    const audio = new Audio('/sounds/engine_start.mp3')
+    audio.volume = 0.7
+    audio.play().catch(e => console.log("Audio autoplay prevented:", e))
+
     // Мощная начальная вибрация
     hapticFeedback('heavy')
     
@@ -27,6 +32,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
     return () => {
       clearTimeout(timer)
       clearInterval(vibrationInterval)
+      audio.pause()
     }
   }, [onComplete])
 
@@ -63,30 +69,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
             {/* Glowing Eyes Animation */}
             {/* Left Eye */}
             <motion.div
-                className="absolute top-[35%] left-[22%] w-12 h-12 bg-red-600 rounded-full blur-xl mix-blend-screen"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ 
-                    opacity: [0, 0, 0.8, 0.4, 0.9],
-                    scale: [0.5, 0.5, 1.2, 1, 1.1] 
-                }}
-                transition={{ 
-                    delay: 0.8, // Wait for logo to appear
-                    duration: 2.5, 
-                    times: [0, 0.1, 0.2, 0.5, 1],
-                    repeat: Infinity,
-                    repeatType: "reverse"
-                }}
-            />
-            <motion.div
-                className="absolute top-[38%] left-[26%] w-3 h-3 bg-white rounded-full blur-[2px]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 0, 1, 0.5, 0.8] }}
-                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
-            />
-
-            {/* Right Eye */}
-            <motion.div
-                className="absolute top-[35%] right-[22%] w-12 h-12 bg-red-600 rounded-full blur-xl mix-blend-screen"
+                className="absolute top-[42%] left-[29%] w-10 h-10 bg-red-600 rounded-full blur-xl mix-blend-screen"
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ 
                     opacity: [0, 0, 0.8, 0.4, 0.9],
@@ -101,9 +84,44 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 }}
             />
             <motion.div
-                className="absolute top-[38%] right-[26%] w-3 h-3 bg-white rounded-full blur-[2px]"
+                className="absolute top-[45%] left-[32%] w-3 h-3 bg-orange-500 rounded-full blur-[4px]"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 0, 1, 0.5, 0.8] }}
+                animate={{ opacity: [0, 0, 1, 0.6, 1] }}
+                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+            />
+            <motion.div
+                className="absolute top-[46%] left-[33%] w-1 h-1 bg-white rounded-full blur-[1px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0, 1, 0.8, 1] }}
+                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+            />
+
+            {/* Right Eye */}
+            <motion.div
+                className="absolute top-[42%] right-[29%] w-10 h-10 bg-red-600 rounded-full blur-xl mix-blend-screen"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ 
+                    opacity: [0, 0, 0.8, 0.4, 0.9],
+                    scale: [0.5, 0.5, 1.2, 1, 1.1] 
+                }}
+                transition={{ 
+                    delay: 0.8, 
+                    duration: 2.5, 
+                    times: [0, 0.1, 0.2, 0.5, 1],
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                }}
+            />
+             <motion.div
+                className="absolute top-[45%] right-[32%] w-3 h-3 bg-orange-500 rounded-full blur-[4px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0, 1, 0.6, 1] }}
+                transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+            />
+            <motion.div
+                className="absolute top-[46%] right-[33%] w-1 h-1 bg-white rounded-full blur-[1px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0, 1, 0.8, 1] }}
                 transition={{ delay: 0.8, duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
             />
         </motion.div>
