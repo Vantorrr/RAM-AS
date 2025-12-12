@@ -9,7 +9,7 @@ router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 # Ключ OpenRouter (лучше вынести в .env в продакшене)
 # Пока используем переданный тобой ключ для теста
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
 
 class Message(BaseModel):
     role: str
