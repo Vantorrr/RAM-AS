@@ -12,7 +12,7 @@ from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine
 from .bot import notify_new_order
-from .routers import marketplace
+from .routers import marketplace, ai
 
 # Create uploads directory
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -298,6 +298,7 @@ admin.add_view(ListingAdmin)
 
 # Include Marketplace Router
 app.include_router(marketplace.router)
+app.include_router(ai.router)
 
 @app.on_event("startup")
 async def startup():
