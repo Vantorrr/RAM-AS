@@ -321,12 +321,20 @@ async def startup():
             print(f"views_count column: {e}")
     
     # Start bot polling in background
-    from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
+    from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL, TOKEN
+    print(f"🔑 BOT_TOKEN exists: {bool(TOKEN and TOKEN != '1234567890:ABCdefGHIjklMNOpqrsTUVwxyz')}")
+    print(f"🤖 Bot object exists: {bool(bot)}")
     if bot:
         print(f"🤖 Starting Telegram bot...")
         print(f"📋 Admins: {ADMIN_CHAT_IDS}")
         print(f"🌐 WebApp: {WEBAPP_URL}")
-        asyncio.create_task(dp.start_polling(bot, skip_updates=True))
+        try:
+            asyncio.create_task(dp.start_polling(bot, skip_updates=True))
+            print("✅ Bot polling task created!")
+        except Exception as e:
+            print(f"❌ Bot polling error: {e}")
+    else:
+        print("⚠️ Bot not started - no valid token!")
 
 @app.get("/")
 async def root():
