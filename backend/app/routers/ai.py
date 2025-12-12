@@ -37,20 +37,20 @@ async def chat_with_ai(request: ChatRequest):
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=500, detail="AI API Key not configured")
 
-    print(f"🔑 Using AI Key: {OPENROUTER_API_KEY[:10]}...")
+    # Clean key just in case
+    clean_key = OPENROUTER_API_KEY.strip().strip('"').strip("'")
+    print(f"🔑 Using AI Key: {clean_key[:10]}... (len: {len(clean_key)})")
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {clean_key}",
         "Content-Type": "application/json",
-        # "HTTP-Referer": "https://alert-joy-production.up.railway.app",
-        # "X-Title": "RAM US Auto Parts",
     }
 
     # Добавляем системный промпт в начало
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [m.dict() for m in request.messages]
 
     payload = {
-        "model": "google/gemini-2.0-flash-exp:free", # Попробуем Gemini Free
+        "model": "openai/gpt-4o-mini",
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1000
