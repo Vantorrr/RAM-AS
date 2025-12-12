@@ -28,13 +28,14 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "*" 
+    "https://alert-joy-production.up.railway.app",
+    "https://ram-us-webapp.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for WebApp
+    allow_credentials=False,  # Disable credentials for wildcard
     allow_methods=["*"],
     allow_headers=["*"],
 )
