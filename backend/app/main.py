@@ -12,6 +12,7 @@ from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine
 from .bot import notify_new_order
+from .routers import marketplace
 
 # Create uploads directory
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -172,10 +173,130 @@ class OrderAdmin(ModelView, model=models.Order):
         "status": {"label": "Статус"},
     }
 
+
+# ============ MARKETPLACE ADMIN ============
+
+class SellerAdmin(ModelView, model=models.Seller):
+    name = "Партнер"
+    name_plural = "🤝 Партнеры"
+    icon = "fa-solid fa-handshake"
+    
+    column_list = [
+        models.Seller.id,
+        models.Seller.name,
+        models.Seller.telegram_username,
+        models.Seller.status,
+        models.Seller.is_verified,
+        models.Seller.subscription_tier,
+        models.Seller.max_products,
+        models.Seller.created_at,
+    ]
+    
+    form_columns = [
+        models.Seller.name,
+        models.Seller.contact_name,
+        models.Seller.phone,
+        models.Seller.email,
+        models.Seller.telegram_id,
+        models.Seller.telegram_username,
+        models.Seller.description,
+        models.Seller.logo_url,
+        models.Seller.status,
+        models.Seller.is_verified,
+        models.Seller.subscription_tier,
+        models.Seller.subscription_expires,
+        models.Seller.max_products,
+    ]
+    
+    column_searchable_list = [models.Seller.name, models.Seller.telegram_username, models.Seller.phone]
+    column_sortable_list = [models.Seller.id, models.Seller.name, models.Seller.status, models.Seller.created_at]
+    column_default_sort = [(models.Seller.id, True)]
+    
+    form_args = {
+        "name": {"label": "Название магазина"},
+        "contact_name": {"label": "Контактное лицо"},
+        "phone": {"label": "Телефон"},
+        "email": {"label": "Email"},
+        "telegram_id": {"label": "Telegram ID"},
+        "telegram_username": {"label": "Telegram @username"},
+        "description": {"label": "Описание"},
+        "logo_url": {"label": "URL логотипа"},
+        "status": {"label": "Статус (pending/approved/rejected/banned)"},
+        "is_verified": {"label": "Верифицирован ✓"},
+        "subscription_tier": {"label": "Подписка (free/start/pro/magnate)"},
+        "subscription_expires": {"label": "Подписка истекает"},
+        "max_products": {"label": "Лимит товаров"},
+    }
+
+
+class ListingAdmin(ModelView, model=models.Listing):
+    name = "Объявление"
+    name_plural = "🏷️ Барахолка"
+    icon = "fa-solid fa-tag"
+    
+    column_list = [
+        models.Listing.id,
+        models.Listing.title,
+        models.Listing.price,
+        models.Listing.city,
+        models.Listing.status,
+        models.Listing.is_paid,
+        models.Listing.is_promoted,
+        models.Listing.views_count,
+        models.Listing.created_at,
+    ]
+    
+    form_columns = [
+        models.Listing.title,
+        models.Listing.description,
+        models.Listing.price,
+        models.Listing.city,
+        models.Listing.images,
+        models.Listing.seller_name,
+        models.Listing.seller_phone,
+        models.Listing.seller_telegram_id,
+        models.Listing.seller_telegram_username,
+        models.Listing.status,
+        models.Listing.rejection_reason,
+        models.Listing.is_paid,
+        models.Listing.payment_amount,
+        models.Listing.is_promoted,
+        models.Listing.promoted_until,
+        models.Listing.expires_at,
+    ]
+    
+    column_searchable_list = [models.Listing.title, models.Listing.seller_name, models.Listing.city]
+    column_sortable_list = [models.Listing.id, models.Listing.price, models.Listing.status, models.Listing.created_at]
+    column_default_sort = [(models.Listing.id, True)]
+    
+    form_args = {
+        "title": {"label": "Заголовок"},
+        "description": {"label": "Описание"},
+        "price": {"label": "Цена (₽)"},
+        "city": {"label": "Город"},
+        "images": {"label": "Фото (JSON)"},
+        "seller_name": {"label": "Имя продавца"},
+        "seller_phone": {"label": "Телефон продавца"},
+        "seller_telegram_id": {"label": "Telegram ID"},
+        "seller_telegram_username": {"label": "Telegram @username"},
+        "status": {"label": "Статус (draft/pending/approved/rejected/sold)"},
+        "rejection_reason": {"label": "Причина отклонения"},
+        "is_paid": {"label": "Оплачено"},
+        "payment_amount": {"label": "Сумма оплаты"},
+        "is_promoted": {"label": "Продвигается"},
+        "promoted_until": {"label": "Продвижение до"},
+        "expires_at": {"label": "Истекает"},
+    }
+
 admin = Admin(app, engine)
 admin.add_view(ProductAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(OrderAdmin)
+admin.add_view(SellerAdmin)
+admin.add_view(ListingAdmin)
+
+# Include Marketplace Router
+app.include_router(marketplace.router)
 
 @app.on_event("startup")
 async def startup():

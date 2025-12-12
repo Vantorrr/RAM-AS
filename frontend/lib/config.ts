@@ -2,3 +2,5 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://ram-as-produc
 // Для локальной разработки можно раскомментировать:
 // export const API_URL = "http://localhost:8000";
 
+
+

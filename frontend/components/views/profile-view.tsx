@@ -1,7 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp } from "lucide-react"
+import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp, Handshake, Tag, Send, Loader2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { BaraholkaView } from "./baraholka-view"
+import { SellerCabinetView } from "./seller-cabinet-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -55,18 +59,46 @@ export function ProfileView() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showRequisites, setShowRequisites] = useState(false)
   const [showPrivacy, setShowPrivacy] = useState(false)
+  const [showPartnerForm, setShowPartnerForm] = useState(false)
+  const [showBaraholka, setShowBaraholka] = useState(false)
+  const [showSellerCabinet, setShowSellerCabinet] = useState(false)
+  const [isExistingSeller, setIsExistingSeller] = useState(false)
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null)
+  
+  // Partner form state
+  const [partnerForm, setPartnerForm] = useState({
+    name: "",
+    contact_name: "",
+    phone: "",
+    email: "",
+    description: ""
+  })
+  const [partnerSubmitting, setPartnerSubmitting] = useState(false)
+  const [partnerSuccess, setPartnerSuccess] = useState(false)
+  const [partnerError, setPartnerError] = useState<string | null>(null)
 
   useEffect(() => {
     const user = getTelegramUser()
     if (user) {
       setTgUser(user)
       fetchOrders(user.id)
+      checkSellerStatus(user.id)
     }
   }, [])
+
+  const checkSellerStatus = async (userId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/marketplace/sellers/me?telegram_id=${userId}`)
+      if (res.ok) {
+        setIsExistingSeller(true)
+      }
+    } catch {
+      // Not a seller, that's ok
+    }
+  }
 
   const fetchOrders = async (userId: number) => {
     setLoadingOrders(true)
@@ -87,6 +119,40 @@ export function ProfileView() {
     navigator.clipboard.writeText(text)
     setCopiedField(field)
     setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  const submitPartnerApplication = async () => {
+    if (!tgUser) return
+    if (!partnerForm.name || !partnerForm.phone) {
+      setPartnerError("Заполните название и телефон")
+      return
+    }
+
+    setPartnerSubmitting(true)
+    setPartnerError(null)
+
+    try {
+      const res = await fetch(`${API_URL}/marketplace/sellers/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...partnerForm,
+          telegram_id: String(tgUser.id),
+          telegram_username: tgUser.username || null
+        })
+      })
+
+      if (res.ok) {
+        setPartnerSuccess(true)
+      } else {
+        const data = await res.json()
+        setPartnerError(data.detail || "Ошибка отправки заявки")
+      }
+    } catch (err) {
+      setPartnerError("Ошибка сети. Попробуйте позже.")
+    } finally {
+      setPartnerSubmitting(false)
+    }
   }
 
   const CopyButton = ({ value, field }: { value: string, field: string }) => (
@@ -254,6 +320,150 @@ export function ProfileView() {
                 <p>Мы не передаем ваши данные третьим лицам, за исключением курьерских служб (СДЭК, Почта России) для выполнения доставки вашего заказа.</p>
             </Card>
         </div>
+      </div>
+    )
+  }
+
+  // Экран Барахолка
+  if (showBaraholka) {
+    return <BaraholkaView onBack={() => setShowBaraholka(false)} />
+  }
+
+  // Экран Кабинет Партнера
+  if (showSellerCabinet) {
+    return <SellerCabinetView onBack={() => setShowSellerCabinet(false)} />
+  }
+
+  // Экран Стать Партнером
+  if (showPartnerForm) {
+    return (
+      <div className="flex flex-col gap-4 pb-24 px-4 pt-4 min-h-screen bg-background">
+        <div className="flex items-center gap-3 mb-2">
+          <Button variant="ghost" size="icon" onClick={() => setShowPartnerForm(false)}>
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </Button>
+          <h1 className="text-xl font-bold">Стать партнером</h1>
+        </div>
+
+        {partnerSuccess ? (
+          <Card className="bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/30">
+            <CardContent className="p-6 text-center">
+              <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <Check className="h-8 w-8 text-green-400" />
+              </div>
+              <h2 className="text-lg font-bold text-green-400 mb-2">Заявка отправлена!</h2>
+              <p className="text-sm text-muted-foreground">
+                Мы свяжемся с вами в ближайшее время для обсуждения условий партнерства.
+              </p>
+              <Button 
+                className="mt-4" 
+                onClick={() => { setShowPartnerForm(false); setPartnerSuccess(false) }}
+              >
+                Вернуться в профиль
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 border-amber-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20 mt-0.5">
+                    <Handshake className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-amber-400 mb-1">Преимущества партнерства</h3>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Размещение товаров на нашей площадке</li>
+                      <li>• Доступ к 10 000+ покупателей</li>
+                      <li>• Никаких скрытых комиссий с продаж</li>
+                      <li>• Личный кабинет со статистикой</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Заявка на партнерство</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Название магазина / компании *</label>
+                  <Input 
+                    placeholder="Например: АвтоЗапчасти МСК"
+                    value={partnerForm.name}
+                    onChange={e => setPartnerForm({...partnerForm, name: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Контактное лицо</label>
+                  <Input 
+                    placeholder="Иван Иванов"
+                    value={partnerForm.contact_name}
+                    onChange={e => setPartnerForm({...partnerForm, contact_name: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Телефон *</label>
+                  <Input 
+                    placeholder="+7 (999) 123-45-67"
+                    value={partnerForm.phone}
+                    onChange={e => setPartnerForm({...partnerForm, phone: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                  <Input 
+                    type="email"
+                    placeholder="shop@example.com"
+                    value={partnerForm.email}
+                    onChange={e => setPartnerForm({...partnerForm, email: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">О компании</label>
+                  <Textarea 
+                    placeholder="Расскажите о вашем ассортименте, опыте работы..."
+                    value={partnerForm.description}
+                    onChange={e => setPartnerForm({...partnerForm, description: e.target.value})}
+                    className="bg-black/20 border-white/10 min-h-[80px]"
+                  />
+                </div>
+
+                {partnerError && (
+                  <p className="text-sm text-red-400">{partnerError}</p>
+                )}
+
+                <Button 
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold"
+                  onClick={submitPartnerApplication}
+                  disabled={partnerSubmitting}
+                >
+                  {partnerSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Отправить заявку
+                </Button>
+              </CardContent>
+            </Card>
+
+            <p className="text-xs text-muted-foreground text-center">
+              После отправки заявки мы свяжемся с вами в Telegram
+            </p>
+          </>
+        )}
       </div>
     )
   }
@@ -445,6 +655,68 @@ export function ProfileView() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Marketplace Section */}
+      <div className="mt-4">
+        <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Маркетплейс</h2>
+        <div className="space-y-2">
+          {isExistingSeller ? (
+            <Card 
+              className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20 cursor-pointer hover:from-green-500/20 hover:to-emerald-500/20 transition-all"
+              onClick={() => setShowSellerCabinet(true)}
+            >
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <Handshake className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-400">Кабинет партнера</p>
+                    <p className="text-xs text-muted-foreground">Управление товарами и статистика</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-green-400" />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card 
+              className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20 cursor-pointer hover:from-amber-500/20 hover:to-orange-500/20 transition-all"
+              onClick={() => setShowPartnerForm(true)}
+            >
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20">
+                    <Handshake className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-amber-400">Стать партнером</p>
+                    <p className="text-xs text-muted-foreground">Размещайте товары на площадке</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-amber-400" />
+              </CardContent>
+            </Card>
+          )}
+
+          <Card 
+            className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/20 cursor-pointer hover:from-cyan-500/20 hover:to-blue-500/20 transition-all"
+            onClick={() => setShowBaraholka(true)}
+          >
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-cyan-500/20">
+                  <Tag className="h-5 w-5 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-cyan-400">Барахолка</p>
+                  <p className="text-xs text-muted-foreground">Продайте свою запчасть</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-cyan-400" />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
