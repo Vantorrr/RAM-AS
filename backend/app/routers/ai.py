@@ -50,7 +50,7 @@ async def chat_with_ai(request: ChatRequest):
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [m.dict() for m in request.messages]
 
     payload = {
-        "model": "google/gemma-2-9b-it:free", # Бесплатная модель для теста
+        "model": "openai/gpt-4o-mini", # Быстрая и умная модель
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1000
@@ -61,8 +61,8 @@ async def chat_with_ai(request: ChatRequest):
             async with session.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
-                    print(f"OpenRouter Error: {error_text}")
-                    raise HTTPException(status_code=resp.status, detail="Ошибка AI сервиса")
+                    print(f"❌ OpenRouter Error ({resp.status}): {error_text}")
+                    raise HTTPException(status_code=resp.status, detail=f"AI Error: {error_text}")
                 
                 data = await resp.json()
                 ai_response = data["choices"][0]["message"]["content"]
