@@ -331,7 +331,7 @@ async def startup():
         import logging
         logging.basicConfig(level=logging.INFO)
         
-        asyncio.create_task(dp.start_polling(bot, skip_updates=True))
+        asyncio.create_task(dp.start_polling(bot, skip_updates=False))
 
 @app.get("/")
 async def root():

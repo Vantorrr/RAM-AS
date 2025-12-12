@@ -118,6 +118,7 @@ async def edit_message_smart(message: types.Message, text: str, reply_markup: In
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    print(f"🚀 cmd_start called for user {message.from_user.id}")
     if message.chat.type != "private":
         return
     
