@@ -7,9 +7,11 @@ import json
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
-# Ключ OpenRouter (лучше вынести в .env в продакшене)
-# Пока используем переданный тобой ключ для теста
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+# Читаем настройки как в твоем примере
+# Приоритет: Переменная окружения -> Хардкод (fallback)
+API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or "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"
+BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-4o-mini")
 
 class Message(BaseModel):
     role: str
@@ -34,40 +36,47 @@ SYSTEM_PROMPT = """
 
 @router.post("/chat")
 async def chat_with_ai(request: ChatRequest):
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=500, detail="AI API Key not configured")
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="API Key not configured")
 
-    # Clean key just in case
-    clean_key = OPENROUTER_API_KEY.strip().strip('"').strip("'")
-    print(f"🔑 Using AI Key: {clean_key[:10]}... (len: {len(clean_key)})")
+    # Очистка ключа от кавычек и пробелов
+    clean_key = API_KEY.strip().strip('"').strip("'")
+    
+    # Логируем (безопасно) для отладки
+    print(f"🤖 AI Request: Model={MODEL}, URL={BASE_URL}, KeyPrefix={clean_key[:10]}...")
 
     headers = {
         "Authorization": f"Bearer {clean_key}",
         "Content-Type": "application/json",
+        # Добавляем реферер на всякий случай, некоторые провайдеры требуют
+        "HTTP-Referer": "https://ram-us-webapp.vercel.app", 
+        "X-Title": "RAM US Auto Parts",
     }
 
-    # Добавляем системный промпт в начало
+    # Добавляем системный промпт
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [m.dict() for m in request.messages]
 
     payload = {
-        "model": "openai/gpt-4o-mini",
+        "model": MODEL,
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1000
     }
+    
+    # Формируем полный URL (учитываем, есть ли / в конце BASE_URL)
+    endpoint = f"{BASE_URL.rstrip('/')}/chat/completions"
 
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload) as resp:
+            async with session.post(endpoint, headers=headers, json=payload) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
-                    print(f"❌ OpenRouter Error ({resp.status}): {error_text}")
+                    print(f"❌ AI Provider Error ({resp.status}): {error_text}")
                     raise HTTPException(status_code=resp.status, detail=f"AI Error: {error_text}")
                 
                 data = await resp.json()
                 ai_response = data["choices"][0]["message"]["content"]
                 return {"role": "assistant", "content": ai_response}
         except Exception as e:
-            print(f"AI Error: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка соединения с AI")
-
+            print(f"❌ Connection Error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
