@@ -548,7 +548,7 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
           size="sm" 
           className="bg-primary"
           onClick={() => setShowAddForm(true)}
-          disabled={stats && stats.total_products >= stats.products_limit}
+          disabled={stats ? stats.total_products >= stats.products_limit : false}
         >
           <Plus className="h-4 w-4 mr-1" />
           Добавить
