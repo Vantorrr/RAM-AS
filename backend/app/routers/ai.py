@@ -37,18 +37,20 @@ async def chat_with_ai(request: ChatRequest):
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=500, detail="AI API Key not configured")
 
+    print(f"🔑 Using AI Key: {OPENROUTER_API_KEY[:10]}...")
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://ram-us.ru",  # Optional
-        "X-Title": "RAM US Auto Parts",      # Optional
+        "HTTP-Referer": "https://ram-us.ru",
+        "X-Title": "RAM US Auto Parts",
     }
 
     # Добавляем системный промпт в начало
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [m.dict() for m in request.messages]
 
     payload = {
-        "model": "openai/gpt-3.5-turbo", # Можно поменять на что-то поумнее, например "anthropic/claude-3-haiku" или "meta-llama/llama-3-8b-instruct:free"
+        "model": "google/gemma-2-9b-it:free", # Бесплатная модель для теста
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1000
