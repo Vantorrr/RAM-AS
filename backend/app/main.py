@@ -301,8 +301,24 @@ app.include_router(marketplace.router)
 
 @app.on_event("startup")
 async def startup():
+    from sqlalchemy import text
+    
     async with engine.begin() as conn:
+        # Create tables
         await conn.run_sync(models.Base.metadata.create_all)
+        
+        # Add missing columns (migrations)
+        try:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_id INTEGER REFERENCES sellers(id)"))
+            print("✅ Added seller_id column to products")
+        except Exception as e:
+            print(f"seller_id column: {e}")
+        
+        try:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0"))
+            print("✅ Added views_count column to products")
+        except Exception as e:
+            print(f"views_count column: {e}")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
