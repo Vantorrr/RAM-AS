@@ -9,7 +9,7 @@ router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 # Читаем настройки как в твоем примере
 # Приоритет: Переменная окружения -> Хардкод (fallback)
-API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or "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"
+API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
 MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-4o-mini")
 
