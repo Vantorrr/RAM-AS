@@ -139,15 +139,24 @@ async def cmd_start(message: types.Message):
     
     # Отправляем фото с текстом
     try:
-        await message.answer_photo(
-            photo=FSInputFile(BOT_IMAGE_PATH),
-            caption=welcome_text,
-            parse_mode="HTML",
-            reply_markup=get_main_keyboard(is_admin_user)
-        )
+        # Проверяем существует ли файл
+        if os.path.exists(BOT_IMAGE_PATH):
+            await message.answer_photo(
+                photo=FSInputFile(BOT_IMAGE_PATH),
+                caption=welcome_text,
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard(is_admin_user)
+            )
+        else:
+            print(f"⚠️ Image not found at {BOT_IMAGE_PATH}, sending text only")
+            await message.answer(
+                welcome_text,
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard(is_admin_user)
+            )
     except Exception as e:
-        print(f"Error sending photo: {e}")
-        # Fallback на текст, если фото не найдено
+        print(f"❌ Error sending photo: {e}")
+        # Fallback на текст
         await message.answer(
             welcome_text,
             parse_mode="HTML",
