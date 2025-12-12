@@ -536,7 +536,7 @@ async def notify_seller_application(seller: models.Seller):
         f"📧 Email: {seller.email or 'Не указан'}\n"
         f"💬 Telegram: @{seller.telegram_username or seller.telegram_id}\n\n"
         f"📝 О компании:\n{seller.description or 'Не указано'}\n\n"
-        f"🔗 <a href='https://ram-as-production.up.railway.app/admin/seller/details/{seller.id}'>Открыть в админке</a>"
+        f"🔗 <a href='https://ram-as-production.up.railway.app/admin/seller/edit/{seller.id}'>Открыть в админке</a>"
     )
     
     for admin_id in ADMIN_CHAT_IDS:
