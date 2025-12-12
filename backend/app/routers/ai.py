@@ -42,8 +42,8 @@ async def chat_with_ai(request: ChatRequest):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://ram-us.ru",
-        "X-Title": "RAM US Auto Parts",
+        # "HTTP-Referer": "https://alert-joy-production.up.railway.app",
+        # "X-Title": "RAM US Auto Parts",
     }
 
     # Добавляем системный промпт в начало
