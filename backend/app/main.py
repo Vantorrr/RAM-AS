@@ -326,6 +326,11 @@ async def startup():
         print(f"🤖 Starting Telegram bot...")
         print(f"📋 Admins: {ADMIN_CHAT_IDS}")
         print(f"🌐 WebApp: {WEBAPP_URL}")
+        
+        # Настройка логирования для aiogram
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        
         asyncio.create_task(dp.start_polling(bot, skip_updates=True))
 
 @app.get("/")
