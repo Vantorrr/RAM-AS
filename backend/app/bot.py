@@ -137,31 +137,15 @@ async def cmd_start(message: types.Message):
     if is_admin_user:
         welcome_text += "\n\n🔐 <i>Ты админ! Доступна панель управления.</i>"
     
-    # Отправляем фото с текстом
+    # Отправляем просто текст для надежности
     try:
-        # Проверяем существует ли файл
-        if os.path.exists(BOT_IMAGE_PATH):
-            await message.answer_photo(
-                photo=FSInputFile(BOT_IMAGE_PATH),
-                caption=welcome_text,
-                parse_mode="HTML",
-                reply_markup=get_main_keyboard(is_admin_user)
-            )
-        else:
-            print(f"⚠️ Image not found at {BOT_IMAGE_PATH}, sending text only")
-            await message.answer(
-                welcome_text,
-                parse_mode="HTML",
-                reply_markup=get_main_keyboard(is_admin_user)
-            )
-    except Exception as e:
-        print(f"❌ Error sending photo: {e}")
-        # Fallback на текст
         await message.answer(
             welcome_text,
             parse_mode="HTML",
             reply_markup=get_main_keyboard(is_admin_user)
         )
+    except Exception as e:
+        print(f"❌ Error sending start message: {e}")
 
 @dp.callback_query(F.data == "requisites")
 async def show_requisites(callback: types.CallbackQuery):
