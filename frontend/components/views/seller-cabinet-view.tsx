@@ -68,10 +68,12 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
     part_number: "",
     manufacturer: "",
     price_rub: "",
-    stock_quantity: "",
+    stock_quantity: "1",
     description: ""
   })
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   useEffect(() => {
     const user = getTelegramUser()
@@ -110,14 +112,96 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
         setStats(statsData)
       }
 
-      // Get products (products with seller_id = this seller)
-      // TODO: Add endpoint for seller's products
-      // For now we'll show empty
+      // Get products
+      const productsRes = await fetch(`${API_URL}/marketplace/sellers/me/products?telegram_id=${userId}`)
+      if (productsRes.ok) {
+        const productsData = await productsRes.json()
+        setProducts(productsData)
+      }
       
     } catch (err) {
       setError("Ошибка сети")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const submitProduct = async () => {
+    if (!tgUser || !seller) return
+    if (!productForm.name || !productForm.part_number || !productForm.price_rub) {
+      setSubmitError("Заполните название, артикул и цену")
+      return
+    }
+
+    setSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      const res = await fetch(`${API_URL}/marketplace/sellers/me/products?telegram_id=${tgUser.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: productForm.name,
+          part_number: productForm.part_number,
+          manufacturer: productForm.manufacturer || null,
+          price_rub: parseFloat(productForm.price_rub),
+          stock_quantity: parseInt(productForm.stock_quantity) || 1,
+          description: productForm.description || null,
+          image_url: null,
+          category_id: null
+        })
+      })
+
+      if (res.ok) {
+        const newProduct = await res.json()
+        setProducts(prev => [newProduct, ...prev])
+        setSubmitSuccess(true)
+        // Reset form
+        setProductForm({
+          name: "",
+          part_number: "",
+          manufacturer: "",
+          price_rub: "",
+          stock_quantity: "1",
+          description: ""
+        })
+        // Update stats
+        if (stats) {
+          setStats({ ...stats, total_products: stats.total_products + 1 })
+        }
+        // Close form after delay
+        setTimeout(() => {
+          setShowAddForm(false)
+          setSubmitSuccess(false)
+        }, 1500)
+      } else {
+        const data = await res.json()
+        setSubmitError(data.detail || "Ошибка создания товара")
+      }
+    } catch (err) {
+      setSubmitError("Ошибка сети. Попробуйте позже.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const deleteProduct = async (productId: number) => {
+    if (!tgUser) return
+    
+    try {
+      const res = await fetch(
+        `${API_URL}/marketplace/sellers/me/products/${productId}?telegram_id=${tgUser.id}`,
+        { method: "DELETE" }
+      )
+      
+      if (res.ok) {
+        setProducts(prev => prev.filter(p => p.id !== productId))
+        if (stats) {
+          setStats({ ...stats, total_products: stats.total_products - 1 })
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete product:", err)
     }
   }
 
@@ -242,6 +326,130 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
     )
   }
 
+  // Add Product Form
+  if (showAddForm) {
+    return (
+      <div className="flex flex-col gap-4 pb-24 px-4 pt-4 min-h-screen bg-background">
+        <div className="flex items-center gap-3 mb-2">
+          <Button variant="ghost" size="icon" onClick={() => { setShowAddForm(false); setSubmitError(null); setSubmitSuccess(false) }}>
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </Button>
+          <h1 className="text-xl font-bold">Добавить товар</h1>
+        </div>
+
+        {submitSuccess ? (
+          <Card className="bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/30">
+            <CardContent className="p-6 text-center">
+              <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <Check className="h-8 w-8 text-green-400" />
+              </div>
+              <h2 className="text-lg font-bold text-green-400 mb-2">Товар добавлен!</h2>
+              <p className="text-sm text-muted-foreground">
+                Товар успешно опубликован и доступен покупателям.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Информация о товаре</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Название товара *</label>
+                <Input 
+                  placeholder="Например: Фильтр масляный MOPAR"
+                  value={productForm.name}
+                  onChange={e => setProductForm({...productForm, name: e.target.value})}
+                  className="bg-black/20 border-white/10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Артикул *</label>
+                  <Input 
+                    placeholder="MO-899"
+                    value={productForm.part_number}
+                    onChange={e => setProductForm({...productForm, part_number: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Производитель</label>
+                  <Input 
+                    placeholder="MOPAR"
+                    value={productForm.manufacturer}
+                    onChange={e => setProductForm({...productForm, manufacturer: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Цена (₽) *</label>
+                  <Input 
+                    type="number"
+                    placeholder="1500"
+                    value={productForm.price_rub}
+                    onChange={e => setProductForm({...productForm, price_rub: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Количество</label>
+                  <Input 
+                    type="number"
+                    placeholder="1"
+                    value={productForm.stock_quantity}
+                    onChange={e => setProductForm({...productForm, stock_quantity: e.target.value})}
+                    className="bg-black/20 border-white/10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Описание</label>
+                <Textarea 
+                  placeholder="Оригинальный фильтр для двигателей 5.7 HEMI..."
+                  value={productForm.description}
+                  onChange={e => setProductForm({...productForm, description: e.target.value})}
+                  className="bg-black/20 border-white/10 min-h-[80px]"
+                />
+              </div>
+
+              {submitError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-sm text-red-400">{submitError}</p>
+                </div>
+              )}
+
+              <Button 
+                className="w-full bg-primary font-bold"
+                onClick={submitProduct}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
+                Добавить товар
+              </Button>
+
+              {stats && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Использовано {stats.total_products} из {stats.products_limit} слотов
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
   // Main Cabinet (Approved)
   const tierInfo = getTierLabel(seller.subscription_tier)
   const statusInfo = getStatusBadge(seller.status)
@@ -352,22 +560,32 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
           {products.map(product => (
             <Card key={product.id} className="bg-white/5 border-white/10">
               <CardContent className="p-3 flex items-center gap-3">
-                <div className="h-12 w-12 rounded bg-white/10 flex-shrink-0 overflow-hidden">
+                <div className="h-12 w-12 rounded bg-white/10 flex-shrink-0 overflow-hidden flex items-center justify-center">
                   {product.image_url ? (
                     <img src={product.image_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <Package className="h-6 w-6 text-muted-foreground m-auto" />
+                    <Package className="h-6 w-6 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{product.name}</p>
                   <p className="text-xs text-muted-foreground">{product.part_number}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-primary">{product.price_rub.toLocaleString()} ₽</p>
-                  <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
-                    <Eye className="h-3 w-3" /> {product.views_count || 0}
-                  </p>
+                <div className="text-right flex items-center gap-2">
+                  <div>
+                    <p className="font-bold text-primary">{product.price_rub?.toLocaleString() || 0} ₽</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
+                      <Eye className="h-3 w-3" /> {product.views_count || 0}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    onClick={() => deleteProduct(product.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

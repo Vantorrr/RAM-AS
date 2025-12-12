@@ -351,6 +351,134 @@ async def update_listing(
     return listing
 
 
+# ============ SELLER PRODUCTS ============
+
+@router.get("/sellers/me/products", response_model=List[schemas.Product])
+async def get_my_products(
+    telegram_id: str,
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить товары партнера"""
+    # Найти продавца
+    result = await db.execute(
+        select(models.Seller).where(models.Seller.telegram_id == telegram_id)
+    )
+    seller = result.scalar_one_or_none()
+    
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+    
+    if seller.status != "approved":
+        raise HTTPException(status_code=403, detail="Аккаунт не активен")
+    
+    # Получить товары
+    products_result = await db.execute(
+        select(models.Product)
+        .where(models.Product.seller_id == seller.id)
+        .order_by(models.Product.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    
+    return products_result.scalars().all()
+
+
+@router.post("/sellers/me/products", response_model=schemas.Product)
+async def create_seller_product(
+    telegram_id: str,
+    product_data: schemas.ProductCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Создать товар от имени партнера"""
+    # Найти продавца
+    result = await db.execute(
+        select(models.Seller).where(models.Seller.telegram_id == telegram_id)
+    )
+    seller = result.scalar_one_or_none()
+    
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+    
+    if seller.status != "approved":
+        raise HTTPException(status_code=403, detail="Аккаунт не активен")
+    
+    # Проверить лимит товаров
+    count_result = await db.execute(
+        select(func.count(models.Product.id)).where(models.Product.seller_id == seller.id)
+    )
+    current_count = count_result.scalar() or 0
+    
+    if current_count >= seller.max_products:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Достигнут лимит товаров ({seller.max_products}). Обновите подписку."
+        )
+    
+    # Проверить уникальность артикула
+    existing = await db.execute(
+        select(models.Product).where(models.Product.part_number == product_data.part_number)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Товар с таким артикулом уже существует")
+    
+    # Создать товар
+    new_product = models.Product(
+        name=product_data.name,
+        part_number=product_data.part_number,
+        description=product_data.description,
+        manufacturer=product_data.manufacturer,
+        price_rub=product_data.price_rub,
+        stock_quantity=product_data.stock_quantity or 1,
+        is_in_stock=True,
+        category_id=product_data.category_id,
+        image_url=product_data.image_url,
+        seller_id=seller.id,  # Привязываем к продавцу
+        views_count=0
+    )
+    
+    db.add(new_product)
+    await db.commit()
+    await db.refresh(new_product)
+    
+    return new_product
+
+
+@router.delete("/sellers/me/products/{product_id}")
+async def delete_seller_product(
+    product_id: int,
+    telegram_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить товар партнера"""
+    # Найти продавца
+    seller_result = await db.execute(
+        select(models.Seller).where(models.Seller.telegram_id == telegram_id)
+    )
+    seller = seller_result.scalar_one_or_none()
+    
+    if not seller:
+        raise HTTPException(status_code=404, detail="Продавец не найден")
+    
+    # Найти товар
+    product_result = await db.execute(
+        select(models.Product).where(
+            models.Product.id == product_id,
+            models.Product.seller_id == seller.id
+        )
+    )
+    product = product_result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Товар не найден или не принадлежит вам")
+    
+    await db.delete(product)
+    await db.commit()
+    
+    return {"status": "ok", "message": "Товар удален"}
+
+
 # ============ PRODUCT VIEWS (Статистика) ============
 
 @router.post("/products/{product_id}/view")
