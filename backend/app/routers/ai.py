@@ -50,7 +50,7 @@ async def chat_with_ai(request: ChatRequest):
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [m.dict() for m in request.messages]
 
     payload = {
-        "model": "openai/gpt-4o-mini", # Быстрая и умная модель
+        "model": "google/gemini-2.0-flash-exp:free", # Попробуем Gemini Free
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 1000
