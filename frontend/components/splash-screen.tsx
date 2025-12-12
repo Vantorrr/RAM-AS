@@ -7,27 +7,28 @@ import { hapticFeedback } from "@/lib/telegram"
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
-    // Звук мотора (попытка воспроизведения)
+    // Звук (THX Deep Note style)
     const audio = new Audio('/sounds/engine_start.mp3')
-    audio.volume = 0.7
+    audio.volume = 0.8
     audio.play().catch(e => console.log("Audio autoplay prevented:", e))
 
-    // Мощная начальная вибрация
+    // Начальный удар
     hapticFeedback('heavy')
     
-    // Средняя вибрация каждые 500мс (чаще и сильнее)
+    // Нарастающая вибрация (гул)
     const vibrationInterval = setInterval(() => {
-      hapticFeedback('medium')
-    }, 500)
+      hapticFeedback('light')
+    }, 150)
     
-    // Завершение
+    // Завершение (даем звуку раскрыться)
     const timer = setTimeout(() => {
       clearInterval(vibrationInterval)
-      // Двойная финальная вибрация
+      // Финальный аккорд
       hapticFeedback('heavy')
-      setTimeout(() => hapticFeedback('success'), 100)
+      setTimeout(() => hapticFeedback('heavy'), 150)
+      setTimeout(() => hapticFeedback('success'), 400)
       onComplete()
-    }, 3000)
+    }, 4500)
     
     return () => {
       clearTimeout(timer)
@@ -134,7 +135,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 className="h-full bg-primary"
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 2.5, ease: "easeInOut" }}
+                transition={{ duration: 4.5, ease: "easeInOut" }}
              />
          </motion.div>
       </div>
