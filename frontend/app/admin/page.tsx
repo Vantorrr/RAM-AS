@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { 
   ArrowLeft, Search, Save, Package, DollarSign, 
   Image as ImageIcon, Percent, ShoppingCart, Users,
-  TrendingUp, Box, Edit, ChevronRight, Upload, AlertCircle, RefreshCw
+  TrendingUp, Box, Edit, ChevronRight, Upload, AlertCircle, RefreshCw,
+  Handshake, Tag, Check, X, Ban, Eye, Phone, Mail, MessageCircle
 } from "lucide-react"
 import { API_URL } from "@/lib/config"
 
@@ -25,20 +26,55 @@ interface Product {
   category_id: number
 }
 
+interface Seller {
+  id: number
+  name: string
+  contact_name: string
+  phone: string
+  email: string
+  telegram_id: string
+  telegram_username: string
+  description: string
+  status: string
+  is_verified: boolean
+  subscription_tier: string
+  max_products: number
+  created_at: string
+}
+
+interface Listing {
+  id: number
+  title: string
+  description: string
+  price: number
+  city: string
+  seller_name: string
+  seller_phone: string
+  status: string
+  is_paid: boolean
+  is_promoted: boolean
+  views_count: number
+  created_at: string
+}
+
 interface Stats {
   totalProducts: number
   totalOrders: number
+  pendingSellers: number
+  pendingListings: number
 }
 
 export default function AdminPage() {
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'>('dashboard')
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
+  const [sellers, setSellers] = useState<Seller[]>([])
+  const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
-  const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalOrders: 0 })
+  const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalOrders: 0, pendingSellers: 0, pendingListings: 0 })
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -47,24 +83,35 @@ export default function AdminPage() {
     setDashboardLoading(true)
     setError(null)
     try {
-      // Добавляем таймаут или обработку ошибок
-      const [productsRes, countRes] = await Promise.all([
-        fetch(`${API_URL}/products/?limit=5`).catch(err => { throw new Error("Failed to fetch products") }),
-        fetch(`${API_URL}/products/count`).catch(err => { throw new Error("Failed to fetch count") })
+      const [productsRes, countRes, sellersRes, listingsRes] = await Promise.all([
+        fetch(`${API_URL}/products/?limit=5`).catch(() => null),
+        fetch(`${API_URL}/products/count`).catch(() => null),
+        fetch(`${API_URL}/marketplace/sellers/pending`).catch(() => null),
+        fetch(`${API_URL}/marketplace/listings/pending`).catch(() => null)
       ])
       
-      if (productsRes.ok) {
+      if (productsRes?.ok) {
         const data = await productsRes.json()
         setRecentProducts(data)
       }
       
-      if (countRes.ok) {
+      if (countRes?.ok) {
         const countData = await countRes.json()
         setStats(prev => ({ ...prev, totalProducts: countData.count }))
       }
+
+      if (sellersRes?.ok) {
+        const sellersData = await sellersRes.json()
+        setStats(prev => ({ ...prev, pendingSellers: sellersData.length }))
+      }
+
+      if (listingsRes?.ok) {
+        const listingsData = await listingsRes.json()
+        setStats(prev => ({ ...prev, pendingListings: listingsData.length }))
+      }
     } catch (err) {
       console.error(err)
-      setError("Не удалось подключиться к серверу. Проверьте соединение.")
+      setError("Не удалось подключиться к серверу.")
     } finally {
       setDashboardLoading(false)
     }
@@ -73,6 +120,78 @@ export default function AdminPage() {
   useEffect(() => {
     loadDashboard()
   }, [loadDashboard])
+
+  // Load sellers
+  const loadSellers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/marketplace/sellers/`)
+      if (res.ok) {
+        const data = await res.json()
+        setSellers(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load listings
+  const loadListings = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/marketplace/listings/pending`)
+      if (res.ok) {
+        const data = await res.json()
+        setListings(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Update seller status
+  const updateSellerStatus = async (sellerId: number, status: string) => {
+    try {
+      const res = await fetch(`${API_URL}/marketplace/sellers/${sellerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+      if (res.ok) {
+        alert(`✅ Статус изменен на: ${status}`)
+        loadSellers()
+        loadDashboard()
+      } else {
+        alert('❌ Ошибка обновления')
+      }
+    } catch (err) {
+      alert('❌ Ошибка сети')
+    }
+  }
+
+  // Update listing status
+  const updateListingStatus = async (listingId: number, status: string, rejectionReason?: string) => {
+    try {
+      const res = await fetch(`${API_URL}/marketplace/listings/${listingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, rejection_reason: rejectionReason })
+      })
+      if (res.ok) {
+        alert(`✅ Статус изменен на: ${status}`)
+        loadListings()
+        loadDashboard()
+      } else {
+        alert('❌ Ошибка обновления')
+      }
+    } catch (err) {
+      alert('❌ Ошибка сети')
+    }
+  }
 
   // Search products
   const handleSearch = useCallback(async () => {
@@ -134,22 +253,228 @@ export default function AdminPage() {
       })
       
       if (res.ok) {
-        const updated = await res.json()
-        console.log("Saved:", updated)
         alert("✅ Изменения сохранены!")
         setEditingProduct(null)
         setView('dashboard')
       } else {
         const err = await res.text()
-        console.error("Error:", err)
         alert("❌ Ошибка сохранения: " + err)
       }
     } catch (err) {
-      console.error(err)
       alert("❌ Ошибка сети")
     } finally {
       setSaving(false)
     }
+  }
+
+  // ============ SELLERS VIEW ============
+  if (view === 'sellers') {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">🤝 Управление партнерами</h1>
+          <Button variant="ghost" size="icon" onClick={loadSellers} className="ml-auto">
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Загрузка...</div>
+        ) : sellers.length === 0 ? (
+          <div className="text-center py-16">
+            <Handshake className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">Нет заявок от партнеров</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sellers.map(seller => (
+              <Card key={seller.id} className="bg-white/5 border-white/10 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg">{seller.name}</h3>
+                    <p className="text-sm text-muted-foreground">{seller.contact_name}</p>
+                  </div>
+                  <Badge className={
+                    seller.status === 'approved' ? 'bg-green-500/20 text-green-400 border-0' :
+                    seller.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-0' :
+                    seller.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-0' :
+                    'bg-gray-500/20 text-gray-400 border-0'
+                  }>
+                    {seller.status === 'approved' ? '✅ Одобрен' :
+                     seller.status === 'pending' ? '⏳ Ожидает' :
+                     seller.status === 'rejected' ? '❌ Отклонен' :
+                     seller.status === 'banned' ? '🚫 Заблокирован' : seller.status}
+                  </Badge>
+                </div>
+
+                <div className="space-y-1 text-sm text-muted-foreground mb-3">
+                  {seller.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      <span>{seller.phone}</span>
+                    </div>
+                  )}
+                  {seller.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3 w-3" />
+                      <span>{seller.email}</span>
+                    </div>
+                  )}
+                  {seller.telegram_username && (
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-3 w-3" />
+                      <span>@{seller.telegram_username}</span>
+                    </div>
+                  )}
+                </div>
+
+                {seller.description && (
+                  <p className="text-xs text-muted-foreground bg-white/5 p-2 rounded mb-3">
+                    {seller.description}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                  <Badge variant="outline" className="text-[10px]">
+                    {seller.subscription_tier || 'free'}
+                  </Badge>
+                  <span>•</span>
+                  <span>До {seller.max_products} товаров</span>
+                </div>
+
+                <div className="flex gap-2">
+                  {seller.status === 'pending' && (
+                    <>
+                      <Button 
+                        size="sm" 
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        onClick={() => updateSellerStatus(seller.id, 'approved')}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Одобрить
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => updateSellerStatus(seller.id, 'rejected')}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Отклонить
+                      </Button>
+                    </>
+                  )}
+                  {seller.status === 'approved' && (
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => updateSellerStatus(seller.id, 'banned')}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Заблокировать
+                    </Button>
+                  )}
+                  {(seller.status === 'rejected' || seller.status === 'banned') && (
+                    <Button 
+                      size="sm" 
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => updateSellerStatus(seller.id, 'approved')}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Восстановить
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ============ LISTINGS VIEW ============
+  if (view === 'listings') {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">🏷️ Модерация барахолки</h1>
+          <Button variant="ghost" size="icon" onClick={loadListings} className="ml-auto">
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Загрузка...</div>
+        ) : listings.length === 0 ? (
+          <div className="text-center py-16">
+            <Tag className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">Нет объявлений на модерации</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {listings.map(listing => (
+              <Card key={listing.id} className="bg-white/5 border-white/10 p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-bold">{listing.title}</h3>
+                  <span className="font-bold text-primary">{listing.price?.toLocaleString()} ₽</span>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                  {listing.description}
+                </p>
+
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                  <span>📍 {listing.city}</span>
+                  <span>👤 {listing.seller_name}</span>
+                  <span>📞 {listing.seller_phone}</span>
+                </div>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge className={listing.is_paid ? 'bg-green-500/20 text-green-400 border-0' : 'bg-yellow-500/20 text-yellow-400 border-0'}>
+                    {listing.is_paid ? '💰 Оплачено' : '⏳ Не оплачено'}
+                  </Badge>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Eye className="h-3 w-3" />
+                    {listing.views_count}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => updateListingStatus(listing.id, 'approved')}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Одобрить
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => {
+                      const reason = prompt('Причина отклонения:')
+                      if (reason) updateListingStatus(listing.id, 'rejected', reason)
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Отклонить
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Edit view
@@ -203,7 +528,6 @@ export default function AdminPage() {
                 Фото товара
               </label>
               
-              {/* Preview */}
               {editingProduct.image_url && (
                 <div className="mb-2 relative w-32 h-32 rounded-lg overflow-hidden bg-white/5">
                   <img 
@@ -214,7 +538,6 @@ export default function AdminPage() {
                 </div>
               )}
               
-              {/* Upload button */}
               <div className="flex gap-2 mb-2">
                 <label className="flex-1 cursor-pointer">
                   <div className="flex items-center justify-center gap-2 p-3 bg-ram-red/20 hover:bg-ram-red/30 border border-ram-red/50 rounded-lg transition-colors">
@@ -230,7 +553,6 @@ export default function AdminPage() {
                 </label>
               </div>
               
-              {/* Or enter URL */}
               <Input
                 type="url"
                 placeholder="Или вставьте URL фото..."
@@ -393,6 +715,44 @@ export default function AdminPage() {
             )}
           </div>
         </Card>
+
+        {/* Pending sellers */}
+        <Card 
+          className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20 p-4 relative overflow-hidden group cursor-pointer hover:border-yellow-500/40 transition-all"
+          onClick={() => { loadSellers(); setView('sellers') }}
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Handshake className="h-12 w-12 text-yellow-400" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-xs text-yellow-400/80 uppercase tracking-wider mb-1">Партнеры</p>
+            {dashboardLoading ? (
+              <Skeleton className="h-8 w-16 bg-yellow-500/10" />
+            ) : (
+              <p className="text-2xl font-bold text-yellow-400">{stats.pendingSellers}</p>
+            )}
+            <p className="text-[10px] text-yellow-400/60">ожидают</p>
+          </div>
+        </Card>
+
+        {/* Pending listings */}
+        <Card 
+          className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20 p-4 relative overflow-hidden group cursor-pointer hover:border-purple-500/40 transition-all"
+          onClick={() => { loadListings(); setView('listings') }}
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Tag className="h-12 w-12 text-purple-400" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-xs text-purple-400/80 uppercase tracking-wider mb-1">Барахолка</p>
+            {dashboardLoading ? (
+              <Skeleton className="h-8 w-16 bg-purple-500/10" />
+            ) : (
+              <p className="text-2xl font-bold text-purple-400">{stats.pendingListings}</p>
+            )}
+            <p className="text-[10px] text-purple-400/60">на модерации</p>
+          </div>
+        </Card>
       </div>
 
       {/* Quick Actions */}
@@ -418,18 +778,45 @@ export default function AdminPage() {
           </div>
         </Card>
 
-        <Card className="bg-white/5 border-white/10 p-4 opacity-75 cursor-not-allowed">
+        <Card 
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
+          onClick={() => { loadSellers(); setView('sellers') }}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                <TrendingUp className="h-6 w-6 text-amber-400/50" />
+              <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/20 shadow-lg shadow-yellow-500/10">
+                <Handshake className="h-6 w-6 text-yellow-400 group-hover:scale-110 transition-transform" />
               </div>
               <div>
-                <p className="font-medium text-muted-foreground">Массовое управление</p>
-                <p className="text-xs text-muted-foreground/50">Цены, категории, импорт</p>
+                <p className="font-bold text-lg">🤝 Партнеры</p>
+                <p className="text-xs text-muted-foreground">Одобрение, блокировка, управление</p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] border-white/10 text-muted-foreground">Скоро</Badge>
+            {stats.pendingSellers > 0 && (
+              <Badge className="bg-yellow-500 text-black font-bold mr-2">{stats.pendingSellers}</Badge>
+            )}
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
+          onClick={() => { loadListings(); setView('listings') }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20 shadow-lg shadow-purple-500/10">
+                <Tag className="h-6 w-6 text-purple-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">🏷️ Барахолка</p>
+                <p className="text-xs text-muted-foreground">Модерация объявлений</p>
+              </div>
+            </div>
+            {stats.pendingListings > 0 && (
+              <Badge className="bg-purple-500 text-white font-bold mr-2">{stats.pendingListings}</Badge>
+            )}
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
           </div>
         </Card>
       </div>
@@ -440,7 +827,6 @@ export default function AdminPage() {
       </h2>
       <div className="space-y-2">
         {dashboardLoading ? (
-          // Skeletons
           Array(3).fill(0).map((_, i) => (
             <Card key={i} className="bg-white/5 border-white/10 p-3">
               <div className="flex items-center gap-3">
