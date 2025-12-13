@@ -10,7 +10,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from . import models, schemas, crud, database, currency
-from .database import engine
+from .database import engine, sync_engine
 from .bot import notify_new_order
 from .routers import marketplace, ai
 
@@ -289,8 +289,8 @@ class ListingAdmin(ModelView, model=models.Listing):
         "expires_at": {"label": "Истекает"},
     }
 
-# SQLAdmin setup (ВАЖНО: используем session_maker для async)
-admin = Admin(app, engine, session_maker=database.SessionLocal)
+# SQLAdmin setup (используем SYNC engine, т.к. sqladmin не поддерживает async полностью)
+admin = Admin(app, sync_engine)
 admin.add_view(ProductAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(OrderAdmin)
