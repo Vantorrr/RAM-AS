@@ -290,12 +290,21 @@ class ListingAdmin(ModelView, model=models.Listing):
     }
 
 # SQLAdmin setup (используем SYNC engine, т.к. sqladmin не поддерживает async полностью)
+print(f"🔧 Setting up SQLAdmin...")
+print(f"🔧 Sync Engine: {sync_engine}")
 admin = Admin(app, sync_engine)
+print(f"🔧 Admin created, adding views...")
 admin.add_view(ProductAdmin)
+print(f"✅ Added ProductAdmin")
 admin.add_view(CategoryAdmin)
+print(f"✅ Added CategoryAdmin")
 admin.add_view(OrderAdmin)
+print(f"✅ Added OrderAdmin")
 admin.add_view(SellerAdmin)
+print(f"✅ Added SellerAdmin")
 admin.add_view(ListingAdmin)
+print(f"✅ Added ListingAdmin")
+print(f"🎉 SQLAdmin setup complete!")
 
 # Include Marketplace Router
 app.include_router(marketplace.router)
