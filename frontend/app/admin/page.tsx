@@ -270,7 +270,7 @@ export default function AdminPage() {
   // ============ SELLERS VIEW ============
   if (view === 'sellers') {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4">
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
         <div className="flex items-center gap-3 mb-6">
           <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
             <ArrowLeft className="h-6 w-6" />
@@ -400,7 +400,7 @@ export default function AdminPage() {
   // ============ LISTINGS VIEW ============
   if (view === 'listings') {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4">
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
         <div className="flex items-center gap-3 mb-6">
           <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
             <ArrowLeft className="h-6 w-6" />
@@ -480,7 +480,7 @@ export default function AdminPage() {
   // Edit view
   if (view === 'edit' && editingProduct) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-4">
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
         <div className="flex items-center gap-3 mb-6">
           <Button variant="ghost" size="icon" onClick={() => { setEditingProduct(null); setView('search') }}>
             <ArrowLeft className="h-6 w-6" />
@@ -602,7 +602,7 @@ export default function AdminPage() {
   // Search view
   if (view === 'search') {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="h-full overflow-y-auto bg-background text-foreground">
         <div className="sticky top-0 z-10 bg-background border-b border-white/5 p-4">
           <div className="flex items-center gap-3 mb-3">
             <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
@@ -669,7 +669,7 @@ export default function AdminPage() {
 
   // Dashboard view
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 pb-24">
+    <div className="h-full overflow-y-auto bg-background text-foreground p-4 pb-24">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-ram-red bg-clip-text text-transparent">
           🔧 RAM Admin
