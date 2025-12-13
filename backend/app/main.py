@@ -289,7 +289,8 @@ class ListingAdmin(ModelView, model=models.Listing):
         "expires_at": {"label": "Истекает"},
     }
 
-admin = Admin(app, engine)
+# SQLAdmin setup (ВАЖНО: используем session_maker для async)
+admin = Admin(app, engine, session_maker=database.SessionLocal)
 admin.add_view(ProductAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(OrderAdmin)
