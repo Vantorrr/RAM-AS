@@ -59,7 +59,9 @@ class Product(ProductBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    # category: Optional[Category] = None  # Removed to avoid lazy loading issues
+    seller_id: Optional[int] = None
+    seller: Optional['SellerPublic'] = None
+    views_count: int = 0
     
     class Config:
         from_attributes = True

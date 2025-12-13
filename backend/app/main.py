@@ -390,7 +390,7 @@ async def read_products(
     sort_by: Optional[str] = None,  # price_asc, price_desc, name_asc, name_desc
     db: AsyncSession = Depends(database.get_db)
 ):
-    query = select(models.Product)
+    query = select(models.Product).options(selectinload(models.Product.seller))
     
     if category_id:
         # Получаем все подкатегории рекурсивно

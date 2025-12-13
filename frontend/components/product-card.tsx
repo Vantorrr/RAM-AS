@@ -4,7 +4,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Percent, Check } from "lucide-react"
+import { ShoppingCart, Percent, Check, Store, ShieldCheck } from "lucide-react"
 import { useCartStore } from "@/lib/cart-store"
 import { useState } from "react"
 
@@ -17,6 +17,10 @@ interface Product {
   part_number: string
   is_in_stock: boolean
   is_installment_available?: boolean
+  seller?: {
+    name: string
+    is_verified: boolean
+  }
 }
 
 interface ProductCardProps {
@@ -73,7 +77,22 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
       </div>
       
       <CardContent className="p-3 flex flex-col flex-grow">
-        <div className="flex items-center justify-between mb-1.5">
+        {/* Seller Badge */}
+        {product.seller ? (
+            <div className="flex items-center gap-1.5 mb-1.5">
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-500/30 bg-blue-500/10 text-blue-300 gap-1 rounded-sm font-normal">
+                    <Store className="h-2.5 w-2.5" />
+                    <span className="truncate max-w-[100px]">{product.seller.name}</span>
+                    {product.seller.is_verified && <ShieldCheck className="h-2.5 w-2.5 text-blue-400" />}
+                </Badge>
+            </div>
+        ) : (
+            <div className="flex items-center gap-1.5 mb-1.5 opacity-0">
+                <Badge className="h-4">Spacer</Badge> {/* Placeholder to align cards */}
+            </div>
+        )}
+
+        <div className="flex items-center justify-between mb-1">
             <p className="text-[9px] font-mono text-muted-foreground bg-white/5 px-1 py-0.5 rounded truncate max-w-[80px]">{product.part_number}</p>
         </div>
         <h3 className="font-bold text-[13px] leading-[1.2] line-clamp-2 mb-auto group-hover:text-primary transition-colors h-[2.4em]">{product.name}</h3>

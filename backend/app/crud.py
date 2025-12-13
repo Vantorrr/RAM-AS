@@ -1,14 +1,23 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from . import models, schemas
 
 # Product CRUD
 async def get_product(db: AsyncSession, product_id: int):
-    result = await db.execute(select(models.Product).where(models.Product.id == product_id))
+    result = await db.execute(
+        select(models.Product)
+        .where(models.Product.id == product_id)
+        .options(selectinload(models.Product.seller))
+    )
     return result.scalars().first()
 
 async def get_product_by_part_number(db: AsyncSession, part_number: str):
-    result = await db.execute(select(models.Product).where(models.Product.part_number == part_number))
+    result = await db.execute(
+        select(models.Product)
+        .where(models.Product.part_number == part_number)
+        .options(selectinload(models.Product.seller))
+    )
     return result.scalars().first()
 
 async def get_products(db: AsyncSession, skip: int = 0, limit: int = 100):

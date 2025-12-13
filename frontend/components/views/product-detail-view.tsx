@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, ShoppingCart, Check, Package, Truck, Shield } from "lucide-react"
+import { ArrowLeft, ShoppingCart, Check, Package, Truck, Shield, Store, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,12 @@ interface Product {
   stock_quantity: number
   is_installment_available?: boolean
   is_preorder: boolean
+  seller?: {
+    id: number
+    name: string
+    is_verified: boolean
+    logo_url?: string
+  }
 }
 
 interface ProductDetailViewProps {
@@ -167,6 +173,35 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
             </Card>
           )}
         </div>
+
+        {/* Seller Info */}
+        {product.seller && (
+            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center overflow-hidden">
+                            {product.seller.logo_url ? (
+                                <img src={product.seller.logo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <Store className="h-5 w-5 text-blue-400" />
+                            )}
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-sm">{product.seller.name}</p>
+                                {product.seller.is_verified && (
+                                    <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
+                                )}
+                            </div>
+                            <p className="text-xs text-blue-300/70">Проверенный партнер</p>
+                        </div>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 text-xs border-blue-500/30 text-blue-300 hover:bg-blue-500/10">
+                        В магазин
+                    </Button>
+                </div>
+            </Card>
+        )}
 
         {/* Description */}
         {product.description && (
