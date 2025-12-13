@@ -344,9 +344,12 @@ async def update_listing(
     await db.commit()
     await db.refresh(listing)
     
-    # Уведомляем продавца о смене статуса
+    # Уведомляем продавца или админа
     if old_status != listing.status:
-        background_tasks.add_task(notify_listing_status_change, listing)
+        if listing.status == models.ListingStatus.PENDING.value:
+            background_tasks.add_task(notify_listing_pending, listing)
+        else:
+            background_tasks.add_task(notify_listing_status_change, listing)
     
     return listing
 
@@ -540,10 +543,12 @@ async def notify_seller_application(seller: models.Seller):
         f"📝 О компании:\n{seller.description or 'Не указано'}\n"
     )
     
-    webapp_url = "https://alert-joy-production.up.railway.app/admin"
+    # Direct Link для Mini App
+    webapp_url = "https://t.me/ram_us_bot/app?startapp=admin"
     
+    # Кнопка для открытия WebApp (используем url=..., чтобы открыть как Direct Link)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
+        [InlineKeyboardButton(text="⚡ Открыть Админку", url=webapp_url)]
     ])
     
     for admin_id in ADMIN_CHAT_IDS:
@@ -589,10 +594,12 @@ async def notify_listing_pending(listing: models.Listing):
         f"📝 {listing.description[:200] if listing.description else 'Без описания'}..."
     )
     
-    webapp_url = "https://alert-joy-production.up.railway.app/admin"
+    # Direct Link для Mini App
+    webapp_url = "https://t.me/ram_us_bot/app?startapp=admin"
     
+    # Кнопка для открытия WebApp (используем url=..., чтобы открыть как Direct Link)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
+        [InlineKeyboardButton(text="⚡ Открыть Админку", url=webapp_url)]
     ])
     
     for admin_id in ADMIN_CHAT_IDS:
