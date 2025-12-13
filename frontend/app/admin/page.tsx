@@ -67,7 +67,7 @@ interface Stats {
   pendingListings: number
 }
 
-export default function AdminPage() {
+function AdminContent() {
   const searchParams = useSearchParams()
   // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
   const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings') || 'dashboard'
@@ -909,5 +909,13 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-background text-foreground">Загрузка...</div>}>
+      <AdminContent />
+    </Suspense>
   )
 }

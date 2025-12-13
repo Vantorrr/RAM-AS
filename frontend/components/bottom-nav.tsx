@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, Search, ShoppingCart, User } from "lucide-react"
+import { Home, Search, ShoppingCart, User, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useCartStore } from "@/lib/cart-store"
@@ -15,7 +15,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full border-t border-white/10 bg-black/80 backdrop-blur-xl pb-safe supports-[backdrop-filter]:bg-black/60">
-      <div className="flex h-16 items-center justify-around px-2">
+      <div className="flex h-16 items-center justify-around px-1">
         <NavButton 
           icon={Home} 
           label="Главная" 
@@ -28,6 +28,16 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           isActive={activeTab === 'catalog'} 
           onClick={() => onTabChange('catalog')} 
         />
+        
+        {/* Барахолка - Центральная кнопка */}
+        <NavButton 
+          icon={Tag} 
+          label="Барахолка" 
+          isActive={activeTab === 'baraholka'} 
+          onClick={() => onTabChange('baraholka')}
+          className="text-purple-400"
+        />
+
         <NavButton 
           icon={ShoppingCart} 
           label="Корзина" 
@@ -46,26 +56,36 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   )
 }
 
-function NavButton({ icon: Icon, label, isActive, onClick, badge }: any) {
+function NavButton({ icon: Icon, label, isActive, onClick, badge, className }: any) {
   return (
     <Button
       variant="ghost"
       size="icon"
       className={cn(
         "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-none hover:bg-white/5 active:scale-95 transition-all",
-        isActive ? "text-primary" : "text-muted-foreground"
+        isActive ? "text-primary" : "text-muted-foreground",
+        isActive && className ? className : "", // Override active color if provided
+        !isActive && className ? "text-purple-400/70" : "" // Custom inactive color
       )}
       onClick={onClick}
     >
       <div className="relative group">
-        <Icon className={cn("h-6 w-6 transition-all duration-300", isActive && "scale-110 drop-shadow-[0_0_8px_rgba(211,47,47,0.6)]")} />
+        <Icon className={cn(
+            "h-6 w-6 transition-all duration-300", 
+            isActive && "scale-110 drop-shadow-[0_0_8px_rgba(211,47,47,0.6)]",
+            isActive && className?.includes("purple") && "drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]" // Purple glow for Baraholka
+        )} />
         {badge > 0 && (
           <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-lg animate-pulse">
             {badge}
           </span>
         )}
       </div>
-      <span className={cn("text-[10px] font-medium transition-colors", isActive ? "text-white" : "text-muted-foreground")}>{label}</span>
+      <span className={cn(
+          "text-[10px] font-medium transition-colors", 
+          isActive ? "text-white" : "text-muted-foreground",
+          isActive && className?.includes("purple") && "text-purple-400"
+      )}>{label}</span>
     </Button>
   )
 }

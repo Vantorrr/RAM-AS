@@ -8,6 +8,7 @@ import { CartView } from "@/components/views/cart-view"
 import { CheckoutView } from "@/components/views/checkout-view"
 import { ProductDetailView } from "@/components/views/product-detail-view"
 import { HomeView } from "@/components/views/home-view"
+import { BaraholkaView } from "@/components/views/baraholka-view"
 import { useState, useEffect } from "react"
 import { initTelegramWebApp } from "@/lib/telegram"
 
