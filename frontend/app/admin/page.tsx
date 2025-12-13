@@ -171,15 +171,18 @@ export default function AdminPage() {
   }, [])
 
   // Update seller status
-  const updateSellerStatus = async (sellerId: number, status: string) => {
+  const updateSellerStatus = async (sellerId: number, status: string, rejectionReason?: string, maxProducts?: number) => {
     try {
+      const body: any = { status }
+      if (maxProducts) body.max_products = maxProducts
+      
       const res = await fetch(`${API_URL}/marketplace/sellers/${sellerId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(body)
       })
       if (res.ok) {
-        alert(`✅ Статус изменен на: ${status}`)
+        alert(maxProducts ? "✅ Лимит обновлен" : `✅ Статус изменен на: ${status}`)
         loadSellers()
         loadDashboard()
       } else {
@@ -385,15 +388,29 @@ export default function AdminPage() {
                     </>
                   )}
                   {seller.status === 'approved' && (
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      className="flex-1"
-                      onClick={() => updateSellerStatus(seller.id, 'banned')}
-                    >
-                      <Ban className="h-4 w-4 mr-1" />
-                      Заблокировать
-                    </Button>
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => {
+                          const newLimit = prompt("Новый лимит товаров:", seller.max_products.toString());
+                          if (newLimit) updateSellerStatus(seller.id, 'approved', undefined, parseInt(newLimit));
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Лимит
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={() => updateSellerStatus(seller.id, 'banned')}
+                      >
+                        <Ban className="h-4 w-4 mr-1" />
+                        Блок
+                      </Button>
+                    </div>
                   )}
                   {(seller.status === 'rejected' || seller.status === 'banned') && (
                     <Button 
