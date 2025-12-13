@@ -304,22 +304,28 @@ app.include_router(ai.router)
 async def startup():
     from sqlalchemy import text
     
+    print("🚀 Starting database initialization...")
+    
     async with engine.begin() as conn:
-        # Create tables
+        # Create ALL tables (including marketplace: sellers, listings, subscriptions)
+        print("📊 Creating database tables...")
         await conn.run_sync(models.Base.metadata.create_all)
+        print("✅ All tables created/verified")
         
-        # Add missing columns (migrations)
+        # Add missing columns (migrations for existing deployments)
         try:
             await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_id INTEGER REFERENCES sellers(id)"))
             print("✅ Added seller_id column to products")
         except Exception as e:
-            print(f"seller_id column: {e}")
+            print(f"⚠️ seller_id column: {e}")
         
         try:
             await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0"))
             print("✅ Added views_count column to products")
         except Exception as e:
-            print(f"views_count column: {e}")
+            print(f"⚠️ views_count column: {e}")
+    
+    print("✅ Database ready!")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
