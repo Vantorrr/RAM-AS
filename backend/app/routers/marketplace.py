@@ -525,6 +525,8 @@ async def record_product_view(
 
 async def notify_seller_application(seller: models.Seller):
     """Уведомление админу о новой заявке партнера"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    
     if not bot or not ADMIN_CHAT_IDS:
         return
     
@@ -535,13 +537,18 @@ async def notify_seller_application(seller: models.Seller):
         f"📞 Телефон: {seller.phone or 'Не указан'}\n"
         f"📧 Email: {seller.email or 'Не указан'}\n"
         f"💬 Telegram: @{seller.telegram_username or seller.telegram_id}\n\n"
-        f"📝 О компании:\n{seller.description or 'Не указано'}\n\n"
-        f"🔗 <a href='https://ram-as-production.up.railway.app/admin/seller/edit/{seller.id}'>Открыть в админке</a>"
+        f"📝 О компании:\n{seller.description or 'Не указано'}\n"
     )
+    
+    webapp_url = "https://alert-joy-production.up.railway.app/admin"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
+    ])
     
     for admin_id in ADMIN_CHAT_IDS:
         try:
-            await bot.send_message(admin_id, text, parse_mode="HTML")
+            await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb)
         except Exception as e:
             print(f"Failed to notify admin {admin_id}: {e}")
 
@@ -567,6 +574,8 @@ async def notify_seller_status_change(seller: models.Seller):
 
 async def notify_listing_pending(listing: models.Listing):
     """Уведомление админу о новом объявлении на модерации"""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    
     if not bot or not ADMIN_CHAT_IDS:
         return
     
@@ -580,9 +589,15 @@ async def notify_listing_pending(listing: models.Listing):
         f"📝 {listing.description[:200] if listing.description else 'Без описания'}..."
     )
     
+    webapp_url = "https://alert-joy-production.up.railway.app/admin"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
+    ])
+    
     for admin_id in ADMIN_CHAT_IDS:
         try:
-            await bot.send_message(admin_id, text, parse_mode="HTML")
+            await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb)
         except Exception as e:
             print(f"Failed to notify admin {admin_id}: {e}")
 

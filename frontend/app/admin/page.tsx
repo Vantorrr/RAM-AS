@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, Suspense } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,9 @@ import {
   Handshake, Tag, Check, X, Ban, Eye, Phone, Mail, MessageCircle
 } from "lucide-react"
 import { API_URL } from "@/lib/config"
+import { useSearchParams } from "next/navigation"
+
+export const dynamic = 'force-dynamic'
 
 interface Product {
   id: number
@@ -65,7 +68,11 @@ interface Stats {
 }
 
 export default function AdminPage() {
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'>('dashboard')
+  const searchParams = useSearchParams()
+  // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
+  const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings') || 'dashboard'
+  
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'>(initialView)
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
@@ -77,6 +84,16 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalOrders: 0, pendingSellers: 0, pendingListings: 0 })
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Update view when URL changes
+  useEffect(() => {
+    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'
+    if (viewParam) {
+      setView(viewParam)
+      if (viewParam === 'sellers') loadSellers()
+      if (viewParam === 'listings') loadListings()
+    }
+  }, [searchParams])
 
   // Load dashboard data
   const loadDashboard = useCallback(async () => {
