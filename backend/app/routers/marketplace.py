@@ -543,12 +543,14 @@ async def notify_seller_application(seller: models.Seller):
         f"📝 О компании:\n{seller.description or 'Не указано'}\n"
     )
     
-    # Direct Link для Mini App
-    webapp_url = "https://t.me/ram_us_bot/app?startapp=admin"
+    # WebApp URL с параметром view
+    # Используем прямой URL фронтенда, чтобы открыть именно нужную страницу
+    # (Telegram откроет это внутри WebApp контейнера)
+    webapp_url = "https://alert-joy-production.up.railway.app/admin?view=sellers"
     
-    # Кнопка для открытия WebApp (используем url=..., чтобы открыть как Direct Link)
+    # Кнопка WebApp
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚡ Открыть Админку", url=webapp_url)]
+        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
     ])
     
     for admin_id in ADMIN_CHAT_IDS:
@@ -594,12 +596,14 @@ async def notify_listing_pending(listing: models.Listing):
         f"📝 {listing.description[:200] if listing.description else 'Без описания'}..."
     )
     
-    # Direct Link для Mini App
-    webapp_url = "https://t.me/ram_us_bot/app?startapp=admin"
+    # WebApp URL с параметром view
+    # Используем прямой URL фронтенда, чтобы открыть именно нужную страницу
+    # (Telegram откроет это внутри WebApp контейнера)
+    webapp_url = "https://alert-joy-production.up.railway.app/admin?view=listings"
     
-    # Кнопка для открытия WebApp (используем url=..., чтобы открыть как Direct Link)
+    # Кнопка WebApp
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚡ Открыть Админку", url=webapp_url)]
+        [InlineKeyboardButton(text="⚡ Открыть Админку", web_app=WebAppInfo(url=webapp_url))]
     ])
     
     for admin_id in ADMIN_CHAT_IDS:
