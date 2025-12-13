@@ -23,6 +23,7 @@ export default function Home() {
       console.log("User:", tg.initDataUnsafe?.user)
     }
   }, [])
+  
   const [activeTab, setActiveTab] = useState("home")
   const [showCheckout, setShowCheckout] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -65,6 +66,8 @@ export default function Home() {
             return <ProfileView />;
         case "cart":
             return <CartView onCheckout={() => setShowCheckout(true)} />;
+        case "marketplace": // <--- RENAMED TO MARKETPLACE
+            return <BaraholkaView onBack={() => setActiveTab("home")} />;
         case "home":
         default:
             return (

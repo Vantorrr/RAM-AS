@@ -29,15 +29,6 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           onClick={() => onTabChange('catalog')} 
         />
         
-        {/* Барахолка - Центральная кнопка */}
-        <NavButton 
-          icon={Tag} 
-          label="Барахолка" 
-          isActive={activeTab === 'baraholka'} 
-          onClick={() => onTabChange('baraholka')}
-          className="text-purple-400"
-        />
-
         <NavButton 
           icon={ShoppingCart} 
           label="Корзина" 
@@ -45,6 +36,15 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           onClick={() => onTabChange('cart')} 
           badge={cartItems}
         />
+        
+        {/* Барахолка */}
+        <NavButton 
+          icon={Tag} 
+          label="Барахолка" 
+          isActive={activeTab === 'marketplace'} 
+          onClick={() => onTabChange('marketplace')}
+        />
+
         <NavButton 
           icon={User} 
           label="Профиль" 
@@ -64,8 +64,8 @@ function NavButton({ icon: Icon, label, isActive, onClick, badge, className }: a
       className={cn(
         "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-none hover:bg-white/5 active:scale-95 transition-all",
         isActive ? "text-primary" : "text-muted-foreground",
-        isActive && className ? className : "", // Override active color if provided
-        !isActive && className ? "text-purple-400/70" : "" // Custom inactive color
+        isActive && className ? className : "", 
+        !isActive && className ? "text-purple-400/70" : ""
       )}
       onClick={onClick}
     >
@@ -73,7 +73,7 @@ function NavButton({ icon: Icon, label, isActive, onClick, badge, className }: a
         <Icon className={cn(
             "h-6 w-6 transition-all duration-300", 
             isActive && "scale-110 drop-shadow-[0_0_8px_rgba(211,47,47,0.6)]",
-            isActive && className?.includes("purple") && "drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]" // Purple glow for Baraholka
+            isActive && className?.includes("purple") && "drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]"
         )} />
         {badge > 0 && (
           <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-lg animate-pulse">
