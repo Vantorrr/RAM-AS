@@ -273,7 +273,7 @@ export function ProfileView() {
 
   // Экран Правовой информации (Оферта, Правила, Приватность)
   if (showLegal) {
-    return <LegalView onBack={() => setShowLegal(false)} initialTab={showLegal === true ? 'offer' : showLegal} />
+    return <LegalView onBack={() => setShowLegal(false)} initialTab={showLegal} />
   }
 
   // Экран Барахолка
