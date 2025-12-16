@@ -58,3 +58,4 @@ async def convert_rub_to_usd(rub_amount: float) -> float:
 
 
 
+

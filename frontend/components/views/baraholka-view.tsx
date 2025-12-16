@@ -280,6 +280,9 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                   )}
                   Создать объявление
                 </Button>
+                <p className="text-[10px] text-muted-foreground text-center mt-2 px-2">
+                  Нажимая кнопку, вы соглашаетесь с <span className="underline">Правилами размещения</span> и <span className="underline">Офертой</span>
+                </p>
               </CardContent>
             </Card>
           </>
@@ -414,4 +417,5 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
     </div>
   )
 }
+
 

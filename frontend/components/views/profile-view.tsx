@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp, Handshake, Tag, Send, Loader2 } from "lucide-react"
+import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp, Handshake, Tag, Send, Loader2, Scale } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { BaraholkaView } from "./baraholka-view"
 import { SellerCabinetView } from "./seller-cabinet-view"
+import { LegalView } from "./legal-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -58,7 +59,10 @@ const REQUISITES = {
 export function ProfileView() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showRequisites, setShowRequisites] = useState(false)
-  const [showPrivacy, setShowPrivacy] = useState(false)
+  
+  // Legal state can be boolean (false) or specific tab name
+  const [showLegal, setShowLegal] = useState<false | 'offer' | 'rules' | 'privacy'>(false)
+  
   const [showPartnerForm, setShowPartnerForm] = useState(false)
   const [showBaraholka, setShowBaraholka] = useState(false)
   const [showSellerCabinet, setShowSellerCabinet] = useState(false)
@@ -267,61 +271,9 @@ export function ProfileView() {
     )
   }
 
-  // Экран Политики конфиденциальности
-  if (showPrivacy) {
-    return (
-      <div className="flex flex-col gap-4 pb-24 px-4 pt-4 min-h-screen bg-background">
-        <div className="flex items-center gap-3 mb-2">
-          <Button variant="ghost" size="icon" onClick={() => setShowPrivacy(false)}>
-            <ChevronRight className="h-5 w-5 rotate-180" />
-          </Button>
-          <h1 className="text-xl font-bold">Политика конфиденциальности</h1>
-        </div>
-
-        <div className="space-y-4 text-sm text-muted-foreground">
-            <Card className="bg-white/5 border-white/10 p-4">
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-green-400" />
-                    1. Общие положения
-                </h3>
-                <p>Мы, RAM US Auto Parts, серьезно относимся к конфиденциальности ваших данных. Мы собираем только ту информацию, которая необходима для оформления и доставки заказа.</p>
-            </Card>
-
-            <Card className="bg-white/5 border-white/10 p-4">
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                    <User className="h-4 w-4 text-blue-400" />
-                    2. Какие данные мы собираем
-                </h3>
-                <ul className="list-disc list-inside space-y-1 ml-1">
-                    <li>Имя пользователя Telegram</li>
-                    <li>Номер телефона (для связи по заказу)</li>
-                    <li>Адрес доставки</li>
-                </ul>
-            </Card>
-
-            <Card className="bg-white/5 border-white/10 p-4">
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                    <Check className="h-4 w-4 text-primary" />
-                    3. Использование данных
-                </h3>
-                <p>Ваши данные используются исключительно для:</p>
-                <ul className="list-disc list-inside space-y-1 ml-1 mt-1">
-                    <li>Обработки заказов</li>
-                    <li>Связи с вами по статусу доставки</li>
-                    <li>Улучшения качества сервиса</li>
-                </ul>
-            </Card>
-
-            <Card className="bg-white/5 border-white/10 p-4">
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-amber-400" />
-                    4. Безопасность
-                </h3>
-                <p>Мы не передаем ваши данные третьим лицам, за исключением курьерских служб (СДЭК, Почта России) для выполнения доставки вашего заказа.</p>
-            </Card>
-        </div>
-      </div>
-    )
+  // Экран Правовой информации (Оферта, Правила, Приватность)
+  if (showLegal) {
+    return <LegalView onBack={() => setShowLegal(false)} initialTab={showLegal === true ? 'offer' : showLegal} />
   }
 
   // Экран Барахолка
@@ -623,18 +575,19 @@ export function ProfileView() {
           </CardContent>
         </Card>
 
+        {/* Legal Info Button */}
         <Card 
           className="bg-white/5 border-white/10 cursor-pointer hover:bg-white/10 transition-all"
-          onClick={() => setShowPrivacy(true)}
+          onClick={() => setShowLegal('offer')}
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/20">
-                <Shield className="h-5 w-5 text-blue-400" />
+                <Scale className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="font-medium">Конфиденциальность</p>
-                <p className="text-xs text-muted-foreground">Политика обработки данных</p>
+                <p className="font-medium">Правовая информация</p>
+                <p className="text-xs text-muted-foreground">Оферта, Правила, Конфиденциальность</p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
