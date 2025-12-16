@@ -32,6 +32,15 @@ interface TelegramUser {
   username?: string
 }
 
+// Список запрещенных слов (корни слов)
+const PROHIBITED_WORDS = [
+  'нарко', 'меф', 'гашиш', 'кокаин', 'героин', 'спайс', 'мариху', 'шишк', 'бошк', // Наркотики
+  'оружие', 'травмат', 'патрон', 'кастет', 'взрыв', 'бомба', 'гранат', // Оружие
+  'порно', 'секс', 'интим', 'проститу', // 18+
+  'экстреми', 'террор', 'смерт', 'убий', // Насилие
+  'пробив', 'обнал', 'документ' // Нелегальные услуги (аккуратно с документами)
+]
+
 export function BaraholkaView({ onBack }: { onBack: () => void }) {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,6 +90,15 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
     if (!tgUser) return
     if (!form.title || !form.price) {
       setSubmitError("Заполните название и цену")
+      return
+    }
+
+    // Проверка на запрещенные слова
+    const fullText = (form.title + " " + (form.description || "")).toLowerCase()
+    const foundBadWord = PROHIBITED_WORDS.find(word => fullText.includes(word))
+    
+    if (foundBadWord) {
+      setSubmitError("Обнаружен запрещенный контент! Мы размещаем только автозапчасти.")
       return
     }
 
