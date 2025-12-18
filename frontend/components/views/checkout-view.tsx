@@ -11,6 +11,33 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { getTelegramUser } from "@/lib/telegram"
 
+// Маска телефона: +7 (XXX) XXX-XX-XX
+function formatPhoneNumber(value: string): string {
+  // Убираем всё кроме цифр
+  const digits = value.replace(/\D/g, '')
+  
+  // Убираем ведущую 7 или 8 если есть
+  let phone = digits
+  if (phone.startsWith('7') || phone.startsWith('8')) {
+    phone = phone.slice(1)
+  }
+  
+  // Ограничиваем до 10 цифр (без кода страны)
+  phone = phone.slice(0, 10)
+  
+  // Форматируем
+  if (phone.length === 0) return ''
+  if (phone.length <= 3) return `+7 (${phone}`
+  if (phone.length <= 6) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3)}`
+  if (phone.length <= 8) return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`
+  return `+7 (${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6, 8)}-${phone.slice(8)}`
+}
+
+function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '')
+  return digits.length === 11 // +7 + 10 цифр
+}
+
 interface CheckoutViewProps {
   onBack: () => void
   onSuccess: () => void
@@ -33,6 +60,13 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Валидация телефона
+    if (!isValidPhone(formData.phone)) {
+      alert("Пожалуйста, введите корректный номер телефона")
+      return
+    }
+    
     setLoading(true)
 
     try {
@@ -173,10 +207,13 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
               type="tel"
               placeholder="+7 (999) 123-45-67"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
               required
               className="bg-white/5 border-white/10"
             />
+            {formData.phone && !isValidPhone(formData.phone) && (
+              <p className="text-xs text-red-400">Введите полный номер телефона</p>
+            )}
           </div>
         </div>
 
@@ -274,7 +311,7 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
           type="submit" 
           size="lg" 
           className="w-full bg-primary hover:bg-primary/90 text-white font-bold shadow-lg shadow-primary/30 transition-all hover:shadow-primary/50 hover:scale-[1.02] active:scale-95"
-          disabled={loading}
+          disabled={loading || !isValidPhone(formData.phone)}
         >
           {loading ? "Оформление..." : "Оформить заказ"}
         </Button>
