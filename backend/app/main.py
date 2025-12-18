@@ -209,24 +209,29 @@ class SellerAdmin(ModelView, model=models.Seller):
         models.Seller.max_products,
     ]
     
-    column_searchable_list = [models.Seller.name, models.Seller.telegram_username, models.Seller.phone]
-    column_sortable_list = [models.Seller.id, models.Seller.name, models.Seller.status, models.Seller.created_at]
-    column_default_sort = [(models.Seller.id, True)]
-    
+    # Виджеты для редактирования (чтобы было удобно)
     form_args = {
-        "name": {"label": "Название магазина"},
-        "contact_name": {"label": "Контактное лицо"},
-        "phone": {"label": "Телефон"},
-        "email": {"label": "Email"},
-        "telegram_id": {"label": "Telegram ID"},
-        "telegram_username": {"label": "Telegram @username"},
-        "description": {"label": "Описание"},
-        "logo_url": {"label": "URL логотипа"},
-        "status": {"label": "Статус (pending/approved/rejected/banned)"},
-        "is_verified": {"label": "Верифицирован ✓"},
-        "subscription_tier": {"label": "Подписка (free/start/pro/magnate)"},
-        "subscription_expires": {"label": "Подписка истекает"},
-        "max_products": {"label": "Лимит товаров"},
+        "status": {
+            "label": "Статус аккаунта",
+            "choices": [
+                ("pending", "Ожидает (Pending)"),
+                ("approved", "Одобрен (Approved)"),
+                ("rejected", "Отклонен (Rejected)"),
+                ("banned", "Заблокирован (Banned)")
+            ]
+        },
+        "subscription_tier": {
+            "label": "Тариф подписки",
+            "choices": [
+                ("free", "Бесплатный (Free) - 10 товаров"),
+                ("start", "Старт (Start) - 50 товаров"),
+                ("pro", "Профи (Pro) - 1000 товаров"),
+                ("magnate", "Магнат (Magnate) - Безлимит")
+            ]
+        },
+        "is_verified": {"label": "Галочка 'Проверенный партнер'"},
+        "max_products": {"label": "Лимит товаров (шт)"},
+        "subscription_expires": {"label": "Дата окончания подписки"}
     }
 
 
