@@ -595,7 +595,14 @@ async def create_order(
         db.add(db_item)
     
     await db.commit()
-    await db.refresh(db_order)
+    
+    # Загружаем заказ с items
+    result = await db.execute(
+        select(models.Order)
+        .where(models.Order.id == db_order.id)
+        .options(selectinload(models.Order.items))
+    )
+    db_order = result.scalar_one()
     
     # Отправляем уведомление в фоне
     background_tasks.add_task(
