@@ -50,11 +50,17 @@ class CreateInvoiceRequest(BaseModel):
     test_mode: bool = True  # По умолчанию тестовый режим
 
 
+class CreateOrderInvoiceRequest(BaseModel):
+    order_id: int
+    test_mode: bool = True  # По умолчанию тестовый режим
+
+
 class InvoiceResponse(BaseModel):
     invoice_id: str
     payment_url: str
     amount: float
-    subscription_tier: str
+    subscription_tier: Optional[str] = None
+    order_id: Optional[int] = None
 
 
 class PayMasterWebhook(BaseModel):
@@ -207,6 +213,77 @@ async def create_invoice(
     )
 
 
+@router.post("/create-order-invoice", response_model=InvoiceResponse)
+async def create_order_invoice(
+    request: CreateOrderInvoiceRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Создает счет на оплату заказа
+    """
+    
+    # Проверяем, существует ли заказ
+    result = await db.execute(
+        select(models.Order).where(models.Order.id == request.order_id)
+    )
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Формируем payload для PayMaster API
+    payload = {
+        "merchantId": PAYMASTER_MERCHANT_ID,
+        "testMode": request.test_mode,
+        "invoice": {
+            "description": f"Заказ #{order.id} — RAM-US Auto Parts",
+            "orderNo": f"order_{order.id}_{int(datetime.now().timestamp())}",
+            "params": {
+                "order_id": str(order.id),
+                "type": "order"
+            }
+        },
+        "amount": {
+            "value": float(order.total_amount),
+            "currency": "RUB"
+        },
+        "protocol": {
+            "callbackUrl": f"{BASE_URL}/api/v1/payments/webhook",
+            "returnUrl": f"https://t.me/ramus_autobot/app?startapp=order_success_{order.id}"
+        }
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {PAYMASTER_BEARER_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{PAYMASTER_API_URL}/invoices",
+            json=payload,
+            headers=headers,
+            timeout=30.0
+        )
+        
+        if response.status_code != 200:
+            print(f"❌ PayMaster API Error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"PayMaster API Error: {response.text}"
+            )
+        
+        invoice_data = response.json()
+    
+    return InvoiceResponse(
+        invoice_id=invoice_data["id"],
+        payment_url=invoice_data["url"],
+        amount=order.total_amount,
+        order_id=order.id
+    )
+
+
 @router.post("/webhook")
 async def paymaster_webhook(
     request: Request,
@@ -226,29 +303,71 @@ async def paymaster_webhook(
         invoice = body.get("invoice", {})
         params = invoice.get("params", {})
         
-        seller_id = params.get("seller_id")
-        subscription_tier = params.get("subscription_tier")
+        payment_type = params.get("type", "subscription")  # "order" or "subscription"
         
-        if not seller_id or not subscription_tier:
-            print("❌ Missing seller_id or subscription_tier in webhook")
-            return {"status": "error", "message": "Missing required params"}
+        # Обработка оплаты ЗАКАЗА
+        if payment_type == "order":
+            order_id = params.get("order_id")
+            if not order_id:
+                print("❌ Missing order_id in webhook")
+                return {"status": "error", "message": "Missing order_id"}
+            
+            if status == "Settled":
+                # Обновляем статус заказа
+                result = await db.execute(
+                    select(models.Order).where(models.Order.id == int(order_id))
+                )
+                order = result.scalar_one_or_none()
+                
+                if order:
+                    order.status = "paid"
+                    await db.commit()
+                    
+                    # Уведомляем пользователя
+                    try:
+                        await bot.send_message(
+                            chat_id=order.user_telegram_id,
+                            text=f"✅ <b>Оплата подтверждена!</b>\n\n"
+                                 f"📦 Заказ #{order.id} оплачен\n"
+                                 f"💰 Сумма: {order.total_amount} ₽\n\n"
+                                 f"Скоро свяжемся с вами для подтверждения доставки!",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        print(f"❌ Failed to notify user: {e}")
+                    
+                    print(f"✅ Order {order_id} marked as paid")
+                    return {"status": "ok", "message": "Order payment confirmed"}
+                else:
+                    print(f"❌ Order {order_id} not found")
+                    return {"status": "error", "message": "Order not found"}
+            
+            elif status in ["Cancelled", "Rejected"]:
+                print(f"⚠️ Order payment {payment_id} failed with status: {status}")
+                return {"status": "ok", "message": "Order payment failed"}
         
-        # Если платеж успешно проведен
-        if status == "Settled":
-            background_tasks.add_task(
-                update_seller_subscription,
-                db,
-                int(seller_id),
-                subscription_tier,
-                payment_id
-            )
-            return {"status": "ok", "message": "Subscription updated"}
-        
-        # Если платеж отменен или отклонен
-        elif status in ["Cancelled", "Rejected"]:
-            print(f"⚠️ Payment {payment_id} failed with status: {status}")
-            # Можно отправить уведомление партнеру об ошибке
-            return {"status": "ok", "message": "Payment failed"}
+        # Обработка оплаты ПОДПИСКИ
+        else:
+            seller_id = params.get("seller_id")
+            subscription_tier = params.get("subscription_tier")
+            
+            if not seller_id or not subscription_tier:
+                print("❌ Missing seller_id or subscription_tier in webhook")
+                return {"status": "error", "message": "Missing required params"}
+            
+            if status == "Settled":
+                background_tasks.add_task(
+                    update_seller_subscription,
+                    db,
+                    int(seller_id),
+                    subscription_tier,
+                    payment_id
+                )
+                return {"status": "ok", "message": "Subscription updated"}
+            
+            elif status in ["Cancelled", "Rejected"]:
+                print(f"⚠️ Subscription payment {payment_id} failed with status: {status}")
+                return {"status": "ok", "message": "Subscription payment failed"}
         
         return {"status": "ok", "message": f"Status {status} received"}
     

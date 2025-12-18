@@ -66,8 +66,29 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
 
       const order = await response.json()
 
-      // Открываем страницу для оплаты (реквизиты компании)
-      alert(`✅ Заказ #${order.id} создан!\n\nПереведите ${totalPrice.toLocaleString()} ₽ на реквизиты:\n\nБанк: АО «ТБанк»\nСчет: 40802810300008948074\nИНН: 519090741487\n\nПосле оплаты свяжемся с вами!`)
+      // Создаем invoice PayMaster для оплаты
+      const paymentResponse = await fetch(`${API_URL}/payments/create-order-invoice`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          test_mode: true  // TODO: Изменить на false для продакшена
+        })
+      })
+
+      if (!paymentResponse.ok) {
+        alert(`✅ Заказ #${order.id} создан!\n\n⚠️ Не удалось открыть страницу оплаты.\nСвяжитесь с нами для получения реквизитов.`)
+        clearCart()
+        onSuccess()
+        return
+      }
+
+      const paymentData = await paymentResponse.json()
+
+      // Открываем страницу оплаты PayMaster
+      window.open(paymentData.payment_url, "_blank")
 
       clearCart()
       onSuccess()
