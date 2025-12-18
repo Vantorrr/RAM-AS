@@ -12,7 +12,8 @@ from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine, sync_engine
 from .bot import notify_new_order
-from .routers import marketplace, ai, favorites, payments, admin
+from .routers import marketplace, ai, favorites, payments
+from .routers import admin as admin_router
 
 # Create uploads directory
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -316,7 +317,7 @@ app.include_router(marketplace.router)
 app.include_router(ai.router)
 app.include_router(favorites.router)
 app.include_router(payments.router)
-app.include_router(admin.router)
+app.include_router(admin_router.router)
 
 @app.on_event("startup")
 async def startup():
