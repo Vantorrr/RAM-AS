@@ -88,7 +88,17 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
       const paymentData = await paymentResponse.json()
 
       // Открываем страницу оплаты PayMaster
-      window.open(paymentData.payment_url, "_blank")
+      // В Telegram Mini App используем openLink, в браузере - window.open
+      if (typeof window !== 'undefined') {
+        const tg = (window as any).Telegram?.WebApp
+        if (tg && tg.openLink) {
+          // Telegram Mini App - открываем через Telegram API
+          tg.openLink(paymentData.payment_url)
+        } else {
+          // Обычный браузер
+          window.open(paymentData.payment_url, "_blank")
+        }
+      }
 
       clearCart()
       onSuccess()
