@@ -65,17 +65,6 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
   // Add product form
   const [showAddForm, setShowAddForm] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
-  
-  // Show Payment View
-  if (showPayment && seller) {
-    return (
-      <SubscriptionPaymentView
-        onBack={() => setShowPayment(false)}
-        sellerId={seller.id}
-        currentTier={seller.subscription_tier}
-      />
-    )
-  }
   const [productForm, setProductForm] = useState({
     name: "",
     part_number: "",
@@ -236,6 +225,17 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
       banned: { text: "Заблокирован", color: "bg-red-500/20 text-red-400", icon: <AlertCircle className="h-3 w-3" /> }
     }
     return badges[status] || badges.pending
+  }
+
+  // Show Payment View
+  if (showPayment && seller) {
+    return (
+      <SubscriptionPaymentView
+        onBack={() => setShowPayment(false)}
+        sellerId={seller.id}
+        currentTier={seller.subscription_tier}
+      />
+    )
   }
 
   // Loading
