@@ -599,11 +599,11 @@ async def create_order(
     
     await db.commit()
     
-    # Загружаем заказ с items
+    # Загружаем заказ с items и products
     result = await db.execute(
         select(models.Order)
         .where(models.Order.id == order_id)
-        .options(selectinload(models.Order.items))
+        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
     )
     db_order = result.scalar_one()
     
