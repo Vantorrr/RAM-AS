@@ -556,6 +556,30 @@ async def get_usd_rate():
     rate = await currency.get_usd_rate()
     return {"rate": rate, "currency": "USD/RUB"}
 
+@app.get("/orders/", response_model=List[schemas.Order])
+async def get_all_orders(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: AsyncSession = Depends(database.get_db)
+):
+    """Получить все заказы (для админки)"""
+    result = await db.execute(
+        select(models.Order)
+        .order_by(models.Order.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
+    )
+    return result.scalars().all()
+
+@app.get("/orders/count")
+async def get_orders_count(db: AsyncSession = Depends(database.get_db)):
+    """Получить количество заказов"""
+    from sqlalchemy import func
+    result = await db.execute(select(func.count(models.Order.id)))
+    count = result.scalar()
+    return {"count": count}
+
 @app.get("/orders/user/{user_telegram_id}", response_model=List[schemas.Order])
 async def get_user_orders(user_telegram_id: str, db: AsyncSession = Depends(database.get_db)):
     result = await db.execute(

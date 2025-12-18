@@ -100,11 +100,12 @@ function AdminContent() {
     setDashboardLoading(true)
     setError(null)
     try {
-      const [productsRes, countRes, sellersRes, listingsRes] = await Promise.all([
+      const [productsRes, countRes, sellersRes, listingsRes, ordersCountRes] = await Promise.all([
         fetch(`${API_URL}/products/?limit=5`).catch(() => null),
         fetch(`${API_URL}/products/count`).catch(() => null),
         fetch(`${API_URL}/marketplace/sellers/pending`).catch(() => null),
-        fetch(`${API_URL}/marketplace/listings/pending`).catch(() => null)
+        fetch(`${API_URL}/marketplace/listings/pending`).catch(() => null),
+        fetch(`${API_URL}/orders/count`).catch(() => null)
       ])
       
       if (productsRes?.ok) {
@@ -125,6 +126,11 @@ function AdminContent() {
       if (listingsRes?.ok) {
         const listingsData = await listingsRes.json()
         setStats(prev => ({ ...prev, pendingListings: listingsData.length }))
+      }
+
+      if (ordersCountRes?.ok) {
+        const ordersData = await ordersCountRes.json()
+        setStats(prev => ({ ...prev, totalOrders: ordersData.count }))
       }
     } catch (err) {
       console.error(err)
