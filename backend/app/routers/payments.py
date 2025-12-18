@@ -275,6 +275,15 @@ async def create_order_invoice(
             )
         
         invoice_data = response.json()
+        print(f"✅ PayMaster Response: {json.dumps(invoice_data, indent=2, ensure_ascii=False)}")
+        
+        # Проверяем наличие обязательных полей
+        if "id" not in invoice_data or "url" not in invoice_data:
+            print(f"❌ Missing 'id' or 'url' in PayMaster response: {invoice_data}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid PayMaster response: {invoice_data}"
+            )
     
     return InvoiceResponse(
         invoice_id=invoice_data["id"],
