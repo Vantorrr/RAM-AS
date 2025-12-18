@@ -70,13 +70,14 @@ interface Stats {
 function AdminContent() {
   const searchParams = useSearchParams()
   // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
-  const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings') || 'dashboard'
+  const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders') || 'dashboard'
   
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'>(initialView)
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders'>(initialView)
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
   const [listings, setListings] = useState<Listing[]>([])
+  const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -87,11 +88,12 @@ function AdminContent() {
 
   // Update view when URL changes
   useEffect(() => {
-    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings'
+    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders'
     if (viewParam) {
       setView(viewParam)
       if (viewParam === 'sellers') loadSellers()
       if (viewParam === 'listings') loadListings()
+      if (viewParam === 'orders') loadOrders()
     }
   }, [searchParams])
 
@@ -168,6 +170,22 @@ function AdminContent() {
       if (res.ok) {
         const data = await res.json()
         setListings(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load orders
+  const loadOrders = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/orders/`)
+      if (res.ok) {
+        const data = await res.json()
+        setOrders(data)
       }
     } catch (err) {
       console.error(err)
@@ -539,6 +557,87 @@ function AdminContent() {
     )
   }
 
+  // ============ ORDERS VIEW ============
+  if (view === 'orders') {
+    return (
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">📦 Все заказы</h1>
+          <Button variant="ghost" size="icon" onClick={loadOrders} className="ml-auto">
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Загрузка...</div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-16">
+            <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">Нет заказов</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order: any) => (
+              <Card key={order.id} className="bg-white/5 border-white/10 p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h3 className="font-bold">Заказ #{order.id}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(order.created_at).toLocaleString('ru-RU')}
+                    </p>
+                  </div>
+                  <Badge className={
+                    order.status === 'paid' ? 'bg-green-500/20 text-green-400 border-0' :
+                    order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-0' :
+                    'bg-gray-500/20 text-gray-400 border-0'
+                  }>
+                    {order.status === 'paid' ? '✅ Оплачен' : 
+                     order.status === 'pending' ? '⏳ В обработке' : order.status}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                  <span>👤 {order.user_name || 'Не указано'}</span>
+                  <span>📞 {order.user_phone || 'Не указано'}</span>
+                </div>
+
+                <div className="text-xs text-muted-foreground mb-3">
+                  📍 {order.delivery_address || 'Адрес не указан'}
+                </div>
+
+                <div className="border-t border-white/10 pt-3 mt-3">
+                  <p className="text-xs text-muted-foreground mb-2">Товары:</p>
+                  {order.items?.map((item: any) => (
+                    <div key={item.id} className="flex justify-between text-sm mb-1">
+                      <span>{item.product?.name || `Товар #${item.product_id}`}</span>
+                      <span className="text-muted-foreground">
+                        {item.quantity} × {item.price_at_purchase?.toLocaleString()} ₽
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-between items-center border-t border-white/10 pt-3 mt-3">
+                  <span className="text-muted-foreground">Итого:</span>
+                  <span className="font-bold text-lg text-primary">
+                    {order.total_amount?.toLocaleString()} ₽
+                  </span>
+                </div>
+
+                <div className="text-xs text-muted-foreground mt-2">
+                  TG ID: {order.user_telegram_id}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Edit view
   if (view === 'edit' && editingProduct) {
     return (
@@ -764,7 +863,10 @@ function AdminContent() {
           </div>
         </Card>
         
-        <Card className="bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20 p-4 relative overflow-hidden group">
+        <Card 
+          className="bg-gradient-to-br from-primary/20 to-primary/5 border-primary/20 p-4 relative overflow-hidden group cursor-pointer hover:border-primary/40 transition-all"
+          onClick={() => { loadOrders(); setView('orders') }}
+        >
           <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
             <ShoppingCart className="h-12 w-12 text-primary" />
           </div>
