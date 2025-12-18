@@ -584,10 +584,13 @@ async def create_order(
     db.add(db_order)
     await db.flush()
     
+    # Сохраняем ID сразу после flush, пока объект еще не expired
+    order_id = db_order.id
+    
     # Добавляем товары в заказ
     for item in order.items:
         db_item = models.OrderItem(
-            order_id=db_order.id,
+            order_id=order_id,
             product_id=item.product_id,
             quantity=item.quantity,
             price_at_purchase=item.price_at_purchase
@@ -599,7 +602,7 @@ async def create_order(
     # Загружаем заказ с items
     result = await db.execute(
         select(models.Order)
-        .where(models.Order.id == db_order.id)
+        .where(models.Order.id == order_id)
         .options(selectinload(models.Order.items))
     )
     db_order = result.scalar_one()
