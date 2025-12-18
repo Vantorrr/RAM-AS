@@ -4,8 +4,9 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Percent, Check, Store, ShieldCheck } from "lucide-react"
+import { ShoppingCart, Percent, Check, Store, ShieldCheck, Heart } from "lucide-react"
 import { useCartStore } from "@/lib/cart-store"
+import { useFavoritesStore } from "@/lib/favorites-store"
 import { useState } from "react"
 
 interface Product {
@@ -31,7 +32,10 @@ interface ProductCardProps {
 export function ProductCard({ product, onClick }: ProductCardProps) {
   const [added, setAdded] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
+  const { isFavorite, toggleFavorite } = useFavoritesStore()
   
+  const isFav = isFavorite(product.id)
+
   // Estimate monthly payment (e.g. 6 months)
   const monthlyPayment = Math.round(product.price_rub / 6);
 
@@ -62,6 +66,19 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         
+        {/* Favorite Button */}
+        <Button
+            size="icon"
+            variant="ghost"
+            className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-black/40 hover:bg-black/60 z-20"
+            onClick={(e) => {
+                e.stopPropagation()
+                toggleFavorite(product.id)
+            }}
+        >
+            <Heart className={`h-3.5 w-3.5 ${isFav ? "fill-primary text-primary" : "text-white"}`} />
+        </Button>
+
         {!product.is_in_stock && (
              <Badge variant="destructive" className="absolute top-1.5 right-1.5 shadow-lg text-[10px] px-1.5 h-5">Нет</Badge>
         )}

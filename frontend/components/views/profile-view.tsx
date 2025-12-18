@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp, Handshake, Tag, Send, Loader2, Scale } from "lucide-react"
+import { User, Package, CreditCard, Building2, Phone, Copy, Check, ChevronRight, Info, Crown, Shield, Lock, ChevronDown, ChevronUp, Handshake, Tag, Send, Loader2, Scale, Heart } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { BaraholkaView } from "./baraholka-view"
 import { SellerCabinetView } from "./seller-cabinet-view"
 import { LegalView } from "./legal-view"
+import { FavoritesView } from "./favorites-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -56,7 +57,11 @@ const REQUISITES = {
   address: "г. Санкт-Петербург"
 }
 
-export function ProfileView() {
+interface ProfileViewProps {
+    onProductClick?: (productId: number) => void
+}
+
+export function ProfileView({ onProductClick }: ProfileViewProps = {}) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [showRequisites, setShowRequisites] = useState(false)
   
@@ -66,6 +71,7 @@ export function ProfileView() {
   const [showPartnerForm, setShowPartnerForm] = useState(false)
   const [showBaraholka, setShowBaraholka] = useState(false)
   const [showSellerCabinet, setShowSellerCabinet] = useState(false)
+  const [showFavorites, setShowFavorites] = useState(false)
   const [isExistingSeller, setIsExistingSeller] = useState(false)
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
@@ -279,6 +285,11 @@ export function ProfileView() {
   // Экран Барахолка
   if (showBaraholka) {
     return <BaraholkaView onBack={() => setShowBaraholka(false)} />
+  }
+
+  // Экран Избранное
+  if (showFavorites) {
+    return <FavoritesView onBack={() => setShowFavorites(false)} onProductClick={onProductClick || (() => {})} />
   }
 
   // Экран Кабинет Партнера
@@ -557,6 +568,24 @@ export function ProfileView() {
 
       {/* Quick Actions */}
       <div className="space-y-2">
+        <Card 
+          className="bg-white/5 border-white/10 cursor-pointer hover:bg-white/10 transition-all"
+          onClick={() => setShowFavorites(true)}
+        >
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-pink-500/20">
+                <Heart className="h-5 w-5 text-pink-400" />
+              </div>
+              <div>
+                <p className="font-medium">Избранное</p>
+                <p className="text-xs text-muted-foreground">Отложенные товары</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
+
         <Card 
           className="bg-white/5 border-white/10 cursor-pointer hover:bg-white/10 transition-all"
           onClick={() => setShowRequisites(true)}

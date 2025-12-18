@@ -11,9 +11,11 @@ import { HomeView } from "@/components/views/home-view"
 import { BaraholkaView } from "@/components/views/baraholka-view"
 import { useState, useEffect } from "react"
 import { initTelegramWebApp } from "@/lib/telegram"
+import { useFavoritesStore } from "@/lib/favorites-store"
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true)
+  const fetchFavorites = useFavoritesStore(state => state.fetchFavorites)
   
   // Инициализация Telegram WebApp
   useEffect(() => {
@@ -21,6 +23,8 @@ export default function Home() {
     if (tg) {
       console.log("Telegram WebApp initialized")
       console.log("User:", tg.initDataUnsafe?.user)
+      // Загружаем избранное при старте
+      fetchFavorites()
     }
   }, [])
   
@@ -63,7 +67,7 @@ export default function Home() {
         case "catalog":
             return <CatalogView onProductClick={handleProductClick} />;
         case "profile":
-            return <ProfileView />;
+            return <ProfileView onProductClick={handleProductClick} />;
         case "cart":
             return <CartView onCheckout={() => setShowCheckout(true)} />;
         case "marketplace": // <--- RENAMED TO MARKETPLACE
