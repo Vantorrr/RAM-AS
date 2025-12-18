@@ -88,6 +88,18 @@ function AdminContent() {
   const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalOrders: 0, pendingSellers: 0, pendingListings: 0 })
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  // Categories state (must be at top level due to hooks rules)
+  const [newCatName, setNewCatName] = useState('')
+  const [newCatSlug, setNewCatSlug] = useState('')
+  const [newCatParent, setNewCatParent] = useState<number | null>(null)
+  const [editingCat, setEditingCat] = useState<any>(null)
+  const [catSaving, setCatSaving] = useState(false)
+  
+  // Showcase state
+  const [showcaseSearchQuery, setShowcaseSearchQuery] = useState('')
+  const [showcaseSearchResults, setShowcaseSearchResults] = useState<any[]>([])
+  const [showcaseSearching, setShowcaseSearching] = useState(false)
 
   // Update view when URL changes
   useEffect(() => {
@@ -677,12 +689,6 @@ function AdminContent() {
 
   // ============ CATEGORIES VIEW ============
   if (view === 'categories') {
-    const [newCatName, setNewCatName] = useState('')
-    const [newCatSlug, setNewCatSlug] = useState('')
-    const [newCatParent, setNewCatParent] = useState<number | null>(null)
-    const [editingCat, setEditingCat] = useState<any>(null)
-    const [catSaving, setCatSaving] = useState(false)
-
     const createCategory = async () => {
       if (!newCatName || !newCatSlug) return
       setCatSaving(true)
@@ -827,23 +833,19 @@ function AdminContent() {
 
   // ============ SHOWCASE VIEW ============
   if (view === 'showcase') {
-    const [searchQuery, setSearchQuery] = useState('')
-    const [searchResults, setSearchResults] = useState<any[]>([])
-    const [searching, setSearching] = useState(false)
-
-    const searchProducts = async () => {
-      if (!searchQuery.trim()) return
-      setSearching(true)
+    const searchShowcaseProducts = async () => {
+      if (!showcaseSearchQuery.trim()) return
+      setShowcaseSearching(true)
       try {
-        const res = await fetch(`${API_URL}/products/search?q=${encodeURIComponent(searchQuery)}&limit=20`)
+        const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(showcaseSearchQuery)}&limit=20`)
         if (res.ok) {
           const data = await res.json()
-          setSearchResults(data)
+          setShowcaseSearchResults(data)
         }
       } catch (e) {
         console.error(e)
       } finally {
-        setSearching(false)
+        setShowcaseSearching(false)
       }
     }
 
@@ -856,8 +858,8 @@ function AdminContent() {
         })
         if (res.ok) {
           loadShowcase()
-          setSearchResults([])
-          setSearchQuery('')
+          setShowcaseSearchResults([])
+          setShowcaseSearchQuery('')
         }
       } catch (e) {
         alert('Ошибка добавления')
@@ -896,18 +898,18 @@ function AdminContent() {
           <div className="flex gap-2 mb-3">
             <Input
               placeholder="Поиск по названию или артикулу..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && searchProducts()}
+              value={showcaseSearchQuery}
+              onChange={e => setShowcaseSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchShowcaseProducts()}
               className="bg-white/10 border-white/20"
             />
-            <Button onClick={searchProducts} disabled={searching}>
-              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            <Button onClick={searchShowcaseProducts} disabled={showcaseSearching}>
+              {showcaseSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
-          {searchResults.length > 0 && (
+          {showcaseSearchResults.length > 0 && (
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {searchResults.map(p => (
+              {showcaseSearchResults.map(p => (
                 <div key={p.id} className="flex items-center justify-between p-2 rounded bg-white/5 hover:bg-white/10">
                   <div className="flex items-center gap-3">
                     {p.image_url && <img src={p.image_url} className="w-10 h-10 object-cover rounded" />}
