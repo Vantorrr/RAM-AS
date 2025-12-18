@@ -264,8 +264,11 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                 <Check className="h-8 w-8 text-green-400" />
               </div>
               <h2 className="text-lg font-bold text-green-400 mb-2">Объявление создано!</h2>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-muted-foreground mb-2">
                 После оплаты размещения (200₽) и модерации ваше объявление появится в ленте.
+              </p>
+              <p className="text-xs text-green-400/60 mb-4">
+                ID: {createdListingId || "не получен"}
               </p>
               <div className="space-y-2">
                 <Button 
