@@ -61,6 +61,8 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [createdListingId, setCreatedListingId] = useState<number | null>(null)
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
 
   useEffect(() => {
     const user = getTelegramUser()
@@ -88,6 +90,47 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      const newFiles = Array.from(files).slice(0, 5 - selectedImages.length) // Max 5 images
+      setSelectedImages(prev => [...prev, ...newFiles])
+    }
+  }
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const uploadImages = async (): Promise<string | null> => {
+    if (selectedImages.length === 0) return null
+    
+    setUploadingImages(true)
+    try {
+      const formData = new FormData()
+      selectedImages.forEach(file => {
+        formData.append("files", file)
+      })
+      
+      const res = await fetch(`${API_URL}/upload/`, {
+        method: "POST",
+        body: formData
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        // Возвращаем URL через запятую
+        return data.urls?.join(",") || null
+      }
+      return null
+    } catch (err) {
+      console.error("Image upload error:", err)
+      return null
+    } finally {
+      setUploadingImages(false)
+    }
+  }
+
   const submitListing = async () => {
     if (!tgUser) return
     if (!form.title || !form.price) {
@@ -108,6 +151,12 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
     setSubmitError(null)
 
     try {
+      // Сначала загружаем фото если есть
+      let imagesUrl: string | null = null
+      if (selectedImages.length > 0) {
+        imagesUrl = await uploadImages()
+      }
+
       const res = await fetch(`${API_URL}/marketplace/listings/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,13 +169,19 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
           seller_phone: form.seller_phone || null,
           seller_telegram_id: String(tgUser.id),
           seller_telegram_username: tgUser.username || null,
-          images: null // TODO: image upload
+          images: imagesUrl
         })
       })
 
       if (res.ok) {
         const data = await res.json()
-        setCreatedListingId(data.id)
+        console.log("Listing created:", data)
+        if (data.id) {
+          setCreatedListingId(data.id)
+          console.log("Set createdListingId to:", data.id)
+        } else {
+          console.error("No ID in response:", data)
+        }
         setSubmitSuccess(true)
       } else {
         const data = await res.json()
@@ -140,7 +195,12 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
   }
 
   const handleListingPayment = async () => {
-    if (!createdListingId) return
+    console.log("handleListingPayment called, createdListingId:", createdListingId)
+    if (!createdListingId) {
+      console.error("No createdListingId!")
+      alert("Ошибка: ID объявления не найден. Попробуйте создать объявление заново.")
+      return
+    }
     
     setPaymentLoading(true)
     try {
@@ -299,6 +359,50 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                   />
                 </div>
 
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    <ImagePlus className="h-3 w-3 inline mr-1" />
+                    Фото (до 5 шт.)
+                  </label>
+                  <div className="space-y-2">
+                    {selectedImages.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedImages.map((file, index) => (
+                          <div key={index} className="relative">
+                            <img 
+                              src={URL.createObjectURL(file)} 
+                              alt={`Photo ${index + 1}`}
+                              className="w-16 h-16 object-cover rounded-lg border border-white/20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                            >
+                              <X className="h-3 w-3 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedImages.length < 5 && (
+                      <label className="flex items-center justify-center w-full h-20 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-cyan-500/50 transition-colors">
+                        <div className="text-center">
+                          <ImagePlus className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">Добавить фото</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageSelect}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 <div className="border-t border-white/10 pt-4">
                   <p className="text-xs text-muted-foreground mb-3">Контактные данные</p>
                   
@@ -338,14 +442,19 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                 <Button 
                   className="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-bold"
                   onClick={submitListing}
-                  disabled={submitting}
+                  disabled={submitting || uploadingImages}
                 >
-                  {submitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {submitting || uploadingImages ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      {uploadingImages ? "Загрузка фото..." : "Создание..."}
+                    </>
                   ) : (
-                    <Send className="h-4 w-4 mr-2" />
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Создать объявление
+                    </>
                   )}
-                  Создать объявление
                 </Button>
                 <p className="text-[10px] text-muted-foreground text-center mt-2 px-2">
                   Нажимая кнопку, вы соглашаетесь с <span className="underline">Правилами размещения</span> и <span className="underline">Офертой</span>

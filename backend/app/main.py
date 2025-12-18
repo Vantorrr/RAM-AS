@@ -522,6 +522,35 @@ async def upload_image(file: UploadFile = File(...)):
     
     return {"url": image_url, "filename": filename}
 
+
+@app.post("/upload/")
+async def upload_multiple_images(files: List[UploadFile] = File(...)):
+    """Загрузить несколько изображений (до 5 штук)"""
+    if len(files) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 files allowed")
+    
+    base_url = os.getenv("BASE_URL", "https://alert-joy-production.up.railway.app")
+    urls = []
+    
+    for file in files:
+        # Проверяем тип файла
+        if not file.content_type.startswith("image/"):
+            continue
+        
+        # Генерируем уникальное имя файла
+        ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+        filename = f"{uuid.uuid4()}.{ext}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        
+        # Сохраняем файл
+        with open(filepath, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        urls.append(f"{base_url}/uploads/{filename}")
+    
+    return {"urls": urls, "count": len(urls)}
+
 @app.get("/categories/tree", response_model=List[schemas.CategoryTree])
 async def get_categories_tree(db: AsyncSession = Depends(database.get_db)):
     result = await db.execute(select(models.Category))

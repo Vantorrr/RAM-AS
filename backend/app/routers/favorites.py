@@ -71,3 +71,4 @@ async def remove_favorite(
     await db.commit()
     return {"message": "Товар удален из избранного"}
 
+
