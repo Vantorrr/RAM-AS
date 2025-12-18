@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getTelegramUser } from "@/lib/telegram"
 import { API_URL } from "@/lib/config"
+import { SubscriptionPaymentView } from "./subscription-payment-view"
 
 interface Seller {
   id: number
@@ -63,6 +64,18 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
   
   // Add product form
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showPayment, setShowPayment] = useState(false)
+  
+  // Show Payment View
+  if (showPayment && seller) {
+    return (
+      <SubscriptionPaymentView
+        onBack={() => setShowPayment(false)}
+        sellerId={seller.id}
+        currentTier={seller.subscription_tier}
+      />
+    )
+  }
   const [productForm, setProductForm] = useState({
     name: "",
     part_number: "",
@@ -522,21 +535,49 @@ export function SellerCabinetView({ onBack }: { onBack: () => void }) {
       )}
 
       {/* Subscription Info */}
-      {seller.subscription_tier === "free" && (
+      {seller.subscription_tier !== "magnate" && (
         <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-sm">Хотите больше?</p>
+                <p className="font-semibold text-sm">
+                  {seller.subscription_tier === "free" ? "Хотите больше?" : "Upgrade до Magnate"}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Обновите подписку и размещайте до 1000 товаров
+                  {seller.subscription_tier === "free" 
+                    ? "Обновите подписку и размещайте до 1000 товаров"
+                    : "Безлимитные товары и выделение в каталоге"
+                  }
                 </p>
               </div>
-              <Button size="sm" className="bg-purple-500 hover:bg-purple-600">
+              <Button 
+                size="sm" 
+                className="bg-purple-500 hover:bg-purple-600"
+                onClick={() => setShowPayment(true)}
+              >
                 <Crown className="h-4 w-4 mr-1" />
                 Upgrade
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Subscription Expires Warning */}
+      {seller.subscription_expires && seller.subscription_tier !== "free" && (
+        <Card className="bg-yellow-500/10 border-yellow-500/20">
+          <CardContent className="p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Подписка истекает</p>
+              <p className="text-sm font-medium">{new Date(seller.subscription_expires).toLocaleDateString('ru-RU')}</p>
+            </div>
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={() => setShowPayment(true)}
+            >
+              Продлить
+            </Button>
           </CardContent>
         </Card>
       )}
