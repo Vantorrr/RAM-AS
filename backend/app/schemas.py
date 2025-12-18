@@ -246,3 +246,19 @@ class SellerStats(BaseModel):
     products_limit: int
     subscription_tier: str
     subscription_expires: Optional[datetime] = None
+
+
+# --- Favorites (Избранное) ---
+class FavoriteBase(BaseModel):
+    user_telegram_id: str
+    product_id: int
+
+class FavoriteCreate(FavoriteBase):
+    pass
+
+class Favorite(FavoriteBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
