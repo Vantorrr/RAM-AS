@@ -269,17 +269,22 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
               </p>
               <div className="space-y-2">
                 <Button 
-                  className="w-full bg-green-500 hover:bg-green-600"
-                  onClick={handleListingPayment}
-                  disabled={paymentLoading}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-bold"
+                  onClick={() => {
+                    console.log("Button clicked! createdListingId:", createdListingId)
+                    handleListingPayment()
+                  }}
+                  disabled={paymentLoading || !createdListingId}
                 >
                   {paymentLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Создание платежа...
                     </>
+                  ) : !createdListingId ? (
+                    "Ошибка: нет ID"
                   ) : (
-                    "Оплатить 200 ₽"
+                    "💳 Оплатить 200 ₽"
                   )}
                 </Button>
                 <Button 
@@ -427,12 +432,6 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                       />
                     </div>
                   </div>
-                </div>
-
-                {/* TODO: Image Upload */}
-                <div className="border border-dashed border-white/20 rounded-lg p-6 text-center">
-                  <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Фото (скоро)</p>
                 </div>
 
                 {submitError && (
