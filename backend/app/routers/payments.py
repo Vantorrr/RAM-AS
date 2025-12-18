@@ -108,7 +108,7 @@ async def create_paymaster_invoice(
             "currency": "RUB"
         },
         "protocol": {
-            "callbackUrl": f"{BACKEND_URL}/api/v1/payments/webhook",
+            "callbackUrl": f"{BACKEND_URL}/payments/webhook",
             "returnUrl": f"https://t.me/ramus_autobot/app?startapp=payment_success"
         }
     }
@@ -250,7 +250,7 @@ async def create_order_invoice(
             "currency": "RUB"
         },
         "protocol": {
-            "callbackUrl": f"{BACKEND_URL}/api/v1/payments/webhook",
+            "callbackUrl": f"{BACKEND_URL}/payments/webhook",
             "returnUrl": f"https://t.me/ramus_autobot/app?startapp=order_success_{order.id}"
         }
     }
