@@ -69,12 +69,8 @@ export function SubscriptionPaymentView({ onBack, sellerId, currentTier }: Subsc
 
       const data = await res.json()
       
-      // Open payment URL in Telegram WebApp
-      if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-        window.Telegram.WebApp.openLink(data.payment_url)
-      } else {
-        window.open(data.payment_url, "_blank")
-      }
+      // Open payment URL
+      window.open(data.payment_url, "_blank")
     } catch (err: any) {
       setError(err.message || "Ошибка создания платежа")
     } finally {
