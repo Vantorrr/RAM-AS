@@ -109,7 +109,7 @@ async def create_paymaster_invoice(
         },
         "protocol": {
             "callbackUrl": f"{BACKEND_URL}/payments/webhook",
-            "returnUrl": f"https://t.me/ramus_autobot/app?startapp=payment_success"
+            "returnUrl": f"https://t.me/ram_us_bot/app?startapp=payment_success"
         }
     }
     
@@ -251,7 +251,7 @@ async def create_order_invoice(
         },
         "protocol": {
             "callbackUrl": f"{BACKEND_URL}/payments/webhook",
-            "returnUrl": f"https://t.me/ramus_autobot/app?startapp=order_success_{order.id}"
+            "returnUrl": f"https://t.me/ram_us_bot/app?startapp=order_success_{order.id}"
         }
     }
     
