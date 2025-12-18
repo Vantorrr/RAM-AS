@@ -206,7 +206,7 @@ async def create_invoice(
     )
     
     return InvoiceResponse(
-        invoice_id=invoice_data["id"],
+        invoice_id=invoice_data["paymentId"],
         payment_url=invoice_data["url"],
         amount=SUBSCRIPTION_PRICES[request.subscription_tier],
         subscription_tier=request.subscription_tier
@@ -277,16 +277,16 @@ async def create_order_invoice(
         invoice_data = response.json()
         print(f"✅ PayMaster Response: {json.dumps(invoice_data, indent=2, ensure_ascii=False)}")
         
-        # Проверяем наличие обязательных полей
-        if "id" not in invoice_data or "url" not in invoice_data:
-            print(f"❌ Missing 'id' or 'url' in PayMaster response: {invoice_data}")
+        # Проверяем наличие обязательных полей (PayMaster возвращает paymentId, не id!)
+        if "paymentId" not in invoice_data or "url" not in invoice_data:
+            print(f"❌ Missing 'paymentId' or 'url' in PayMaster response: {invoice_data}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Invalid PayMaster response: {invoice_data}"
             )
     
     return InvoiceResponse(
-        invoice_id=invoice_data["id"],
+        invoice_id=invoice_data["paymentId"],
         payment_url=invoice_data["url"],
         amount=order.total_amount,
         order_id=order.id
