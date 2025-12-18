@@ -25,7 +25,9 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 PAYMASTER_MERCHANT_ID = "5cad3313-7c95-416a-bbe8-6fb95c52ec7a"
 PAYMASTER_BEARER_TOKEN = "e82d0df805d69ebcadf379d366f2cfc662fb825f368e3c246f606f1ca643d16402f68ce0cdc2c9e37bf81d4ba99be61644cb"
 PAYMASTER_API_URL = "https://paymaster.ru/api/v2"
-BASE_URL = os.getenv("BASE_URL", "https://alert-joy-production.up.railway.app")
+# ВАЖНО: callbackUrl должен идти на БЭКЕНД, не на фронтенд!
+BACKEND_URL = os.getenv("BACKEND_URL", "https://ram-as-production.up.railway.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://alert-joy-production.up.railway.app")
 
 # Subscription Plans Pricing (in RUB)
 SUBSCRIPTION_PRICES = {
@@ -106,7 +108,7 @@ async def create_paymaster_invoice(
             "currency": "RUB"
         },
         "protocol": {
-            "callbackUrl": f"{BASE_URL}/api/v1/payments/webhook",
+            "callbackUrl": f"{BACKEND_URL}/api/v1/payments/webhook",
             "returnUrl": f"https://t.me/ramus_autobot/app?startapp=payment_success"
         }
     }
@@ -248,7 +250,7 @@ async def create_order_invoice(
             "currency": "RUB"
         },
         "protocol": {
-            "callbackUrl": f"{BASE_URL}/api/v1/payments/webhook",
+            "callbackUrl": f"{BACKEND_URL}/api/v1/payments/webhook",
             "returnUrl": f"https://t.me/ramus_autobot/app?startapp=order_success_{order.id}"
         }
     }
