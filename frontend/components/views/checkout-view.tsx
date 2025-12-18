@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { ArrowLeft, Package, CreditCard, Truck, MapPin, Check } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { getTelegramUser } from "@/lib/telegram"
 
 interface CheckoutViewProps {
   onBack: () => void
@@ -35,8 +36,11 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
     setLoading(true)
 
     try {
+      const tgUser = getTelegramUser()
+      const userId = tgUser?.id ? String(tgUser.id) : "web_user"
+
       const orderData = {
-        user_telegram_id: "web_user", // TODO: Get from Telegram WebApp
+        user_telegram_id: userId,
         user_name: formData.name,
         user_phone: formData.phone,
         delivery_address: deliveryMethod === 'pickup' 
@@ -59,6 +63,11 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
       })
 
       if (!response.ok) throw new Error("Failed to create order")
+
+      const order = await response.json()
+
+      // Открываем страницу для оплаты (реквизиты компании)
+      alert(`✅ Заказ #${order.id} создан!\n\nПереведите ${totalPrice.toLocaleString()} ₽ на реквизиты:\n\nБанк: АО «ТБанк»\nСчет: 40802810300008948074\nИНН: 519090741487\n\nПосле оплаты свяжемся с вами!`)
 
       clearCart()
       onSuccess()
