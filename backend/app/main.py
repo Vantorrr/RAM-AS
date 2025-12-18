@@ -343,6 +343,19 @@ async def startup():
             print("✅ Added views_count column to products")
         except Exception as e:
             print(f"⚠️ views_count column: {e}")
+        
+        # Витрина: новые колонки для featured товаров
+        try:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE"))
+            print("✅ Added is_featured column to products")
+        except Exception as e:
+            print(f"⚠️ is_featured column: {e}")
+        
+        try:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0"))
+            print("✅ Added display_order column to products")
+        except Exception as e:
+            print(f"⚠️ display_order column: {e}")
     
     print("✅ Database ready!")
     
