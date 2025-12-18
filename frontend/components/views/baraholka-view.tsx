@@ -176,13 +176,19 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
       if (res.ok) {
         const data = await res.json()
         console.log("Listing created:", data)
-        if (data.id) {
-          setCreatedListingId(data.id)
-          console.log("Set createdListingId to:", data.id)
+        const listingId = data.id
+        if (listingId) {
+          console.log("Got listing ID:", listingId)
+          // Важно: сначала сохраняем ID, потом показываем success
+          setCreatedListingId(listingId)
+          // Небольшая задержка чтобы state обновился
+          setTimeout(() => {
+            setSubmitSuccess(true)
+          }, 100)
         } else {
           console.error("No ID in response:", data)
+          setSubmitError("Ошибка: не получен ID объявления")
         }
-        setSubmitSuccess(true)
       } else {
         const data = await res.json()
         setSubmitError(data.detail || "Ошибка создания объявления")
@@ -220,8 +226,9 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
       const data = await res.json()
       
       // Открываем страницу оплаты
-      if (window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(data.payment_url)
+      const tgWebApp = window.Telegram?.WebApp as any
+      if (tgWebApp?.openLink) {
+        tgWebApp.openLink(data.payment_url)
       } else {
         window.open(data.payment_url, "_blank")
       }
@@ -273,19 +280,14 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
               <div className="space-y-2">
                 <Button 
                   className="w-full bg-green-500 hover:bg-green-600 text-white font-bold"
-                  onClick={() => {
-                    console.log("Button clicked! createdListingId:", createdListingId)
-                    handleListingPayment()
-                  }}
-                  disabled={paymentLoading || !createdListingId}
+                  onClick={handleListingPayment}
+                  disabled={paymentLoading}
                 >
                   {paymentLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Создание платежа...
                     </>
-                  ) : !createdListingId ? (
-                    "Ошибка: нет ID"
                   ) : (
                     "💳 Оплатить 200 ₽"
                   )}
