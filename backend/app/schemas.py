@@ -12,6 +12,12 @@ class CategoryBase(BaseModel):
 class CategoryCreate(CategoryBase):
     pass
 
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    parent_id: Optional[int] = None
+    image_url: Optional[str] = None
+
 class CategoryTree(CategoryBase):
     id: int
     children: List['CategoryTree'] = []

@@ -49,21 +49,28 @@ interface HomeViewProps {
 export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }: HomeViewProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingCats, setLoadingCats] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Загружаем категории и товары параллельно
-        const [catsRes, prodsRes] = await Promise.all([
+        // Загружаем категории, featured товары и обычные товары параллельно
+        const [catsRes, featuredRes, prodsRes] = await Promise.all([
           fetch(`${API_URL}/categories/tree`),
+          fetch(`${API_URL}/products/featured?limit=8`),
           fetch(`${API_URL}/products/?limit=10`)
         ])
         
         if (catsRes.ok) {
           const catsData = await catsRes.json()
           setCategories(catsData)
+        }
+        
+        if (featuredRes.ok) {
+          const featuredData = await featuredRes.json()
+          setFeaturedProducts(featuredData)
         }
         
         if (prodsRes.ok) {
@@ -259,12 +266,12 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
         </Card>
       </section>
 
-      {/* Products Section */}
+      {/* Featured Products Section (Витрина) */}
       <section className="px-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="h-5 w-1 bg-primary rounded-full" />
-            Популярные товары
+            {featuredProducts.length > 0 ? "⭐ Витрина" : "Популярные товары"}
           </h2>
           <Button 
             variant="ghost" 
@@ -282,9 +289,9 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
               <ProductCardSkeleton key={i} />
             ))}
           </div>
-        ) : products.length > 0 ? (
+        ) : (featuredProducts.length > 0 ? featuredProducts : products).length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {products.slice(0, 4).map((product) => (
+            {(featuredProducts.length > 0 ? featuredProducts : products).slice(0, 4).map((product) => (
               <ProductCard key={product.id} product={product} onClick={onProductClick} />
             ))}
           </div>

@@ -12,7 +12,7 @@ from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine, sync_engine
 from .bot import notify_new_order
-from .routers import marketplace, ai, favorites, payments
+from .routers import marketplace, ai, favorites, payments, admin
 
 # Create uploads directory
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -316,6 +316,7 @@ app.include_router(marketplace.router)
 app.include_router(ai.router)
 app.include_router(favorites.router)
 app.include_router(payments.router)
+app.include_router(admin.router)
 
 @app.on_event("startup")
 async def startup():
@@ -434,6 +435,22 @@ async def read_products(
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
+
+@app.get("/products/featured", response_model=List[schemas.Product])
+async def get_featured_products(
+    limit: int = 8,
+    db: AsyncSession = Depends(database.get_db)
+):
+    """Получить товары витрины (is_featured=True)"""
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.seller))
+        .where(models.Product.is_featured == True)
+        .order_by(models.Product.display_order, models.Product.id)
+        .limit(limit)
+    )
+    return result.scalars().all()
+
 
 @app.get("/products/count")
 async def get_products_count(

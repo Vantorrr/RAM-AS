@@ -69,6 +69,10 @@ class Product(Base):
     # Статистика просмотров
     views_count = Column(Integer, default=0)
     
+    # Витрина: показывать на главной
+    is_featured = Column(Boolean, default=False)
+    display_order = Column(Integer, default=0)  # Порядок на витрине
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

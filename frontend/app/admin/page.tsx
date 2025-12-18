@@ -10,7 +10,8 @@ import {
   ArrowLeft, Search, Save, Package, DollarSign, 
   Image as ImageIcon, Percent, ShoppingCart, Users,
   TrendingUp, Box, Edit, ChevronRight, Upload, AlertCircle, RefreshCw,
-  Handshake, Tag, Check, X, Ban, Eye, Phone, Mail, MessageCircle
+  Handshake, Tag, Check, X, Ban, Eye, Phone, Mail, MessageCircle,
+  FolderTree, Star, Plus, Trash2, GripVertical, Loader2
 } from "lucide-react"
 import { API_URL } from "@/lib/config"
 import { useSearchParams } from "next/navigation"
@@ -70,14 +71,16 @@ interface Stats {
 function AdminContent() {
   const searchParams = useSearchParams()
   // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
-  const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders') || 'dashboard'
+  const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase') || 'dashboard'
   
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders'>(initialView)
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'>(initialView)
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [orders, setOrders] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -88,12 +91,14 @@ function AdminContent() {
 
   // Update view when URL changes
   useEffect(() => {
-    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders'
+    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'
     if (viewParam) {
       setView(viewParam)
       if (viewParam === 'sellers') loadSellers()
       if (viewParam === 'listings') loadListings()
       if (viewParam === 'orders') loadOrders()
+      if (viewParam === 'categories') loadCategories()
+      if (viewParam === 'showcase') loadShowcase()
     }
   }, [searchParams])
 
@@ -186,6 +191,38 @@ function AdminContent() {
       if (res.ok) {
         const data = await res.json()
         setOrders(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load categories
+  const loadCategories = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/categories/tree`)
+      if (res.ok) {
+        const data = await res.json()
+        setCategories(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load showcase products
+  const loadShowcase = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/showcase`)
+      if (res.ok) {
+        const data = await res.json()
+        setShowcaseProducts(data)
       }
     } catch (err) {
       console.error(err)
@@ -638,6 +675,293 @@ function AdminContent() {
     )
   }
 
+  // ============ CATEGORIES VIEW ============
+  if (view === 'categories') {
+    const [newCatName, setNewCatName] = useState('')
+    const [newCatSlug, setNewCatSlug] = useState('')
+    const [newCatParent, setNewCatParent] = useState<number | null>(null)
+    const [editingCat, setEditingCat] = useState<any>(null)
+    const [catSaving, setCatSaving] = useState(false)
+
+    const createCategory = async () => {
+      if (!newCatName || !newCatSlug) return
+      setCatSaving(true)
+      try {
+        const res = await fetch(`${API_URL}/admin/categories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newCatName,
+            slug: newCatSlug,
+            parent_id: newCatParent
+          })
+        })
+        if (res.ok) {
+          setNewCatName('')
+          setNewCatSlug('')
+          setNewCatParent(null)
+          loadCategories()
+        } else {
+          const err = await res.json()
+          alert(err.detail || 'Ошибка создания')
+        }
+      } catch (e) {
+        alert('Ошибка сети')
+      } finally {
+        setCatSaving(false)
+      }
+    }
+
+    const deleteCategory = async (id: number) => {
+      if (!confirm('Удалить категорию?')) return
+      try {
+        const res = await fetch(`${API_URL}/admin/categories/${id}`, { method: 'DELETE' })
+        if (res.ok) {
+          loadCategories()
+        } else {
+          const err = await res.json()
+          alert(err.detail || 'Ошибка удаления')
+        }
+      } catch (e) {
+        alert('Ошибка сети')
+      }
+    }
+
+    const renderCategoryTree = (cats: any[], level = 0) => {
+      return cats.map(cat => (
+        <div key={cat.id}>
+          <div 
+            className={`flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all ${level > 0 ? 'ml-6' : ''}`}
+          >
+            <div className="flex items-center gap-3">
+              <FolderTree className="h-4 w-4 text-cyan-400" />
+              <div>
+                <p className="font-medium">{cat.name}</p>
+                <p className="text-xs text-muted-foreground">/{cat.slug}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditingCat(cat)}>
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => deleteCategory(cat.id)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          {cat.children && cat.children.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {renderCategoryTree(cat.children, level + 1)}
+            </div>
+          )}
+        </div>
+      ))
+    }
+
+    return (
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">📁 Управление категориями</h1>
+          <Button variant="ghost" size="icon" onClick={loadCategories} className="ml-auto">
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Add new category */}
+        <Card className="bg-cyan-500/10 border-cyan-500/20 p-4 mb-6">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Новая категория
+          </h3>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <Input
+              placeholder="Название"
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
+              className="bg-white/10 border-white/20"
+            />
+            <Input
+              placeholder="Slug (латиница)"
+              value={newCatSlug}
+              onChange={e => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+              className="bg-white/10 border-white/20"
+            />
+          </div>
+          <div className="flex gap-3">
+            <select
+              value={newCatParent || ''}
+              onChange={e => setNewCatParent(e.target.value ? Number(e.target.value) : null)}
+              className="flex-1 bg-white/10 border border-white/20 rounded-md p-2 text-sm"
+            >
+              <option value="">Корневая категория</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+            <Button onClick={createCategory} disabled={catSaving || !newCatName || !newCatSlug}>
+              {catSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+              Создать
+            </Button>
+          </div>
+        </Card>
+
+        {/* Categories tree */}
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Загрузка...</div>
+        ) : categories.length === 0 ? (
+          <div className="text-center py-16">
+            <FolderTree className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">Нет категорий</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {renderCategoryTree(categories)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ============ SHOWCASE VIEW ============
+  if (view === 'showcase') {
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState<any[]>([])
+    const [searching, setSearching] = useState(false)
+
+    const searchProducts = async () => {
+      if (!searchQuery.trim()) return
+      setSearching(true)
+      try {
+        const res = await fetch(`${API_URL}/products/search?q=${encodeURIComponent(searchQuery)}&limit=20`)
+        if (res.ok) {
+          const data = await res.json()
+          setSearchResults(data)
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setSearching(false)
+      }
+    }
+
+    const addToShowcase = async (productId: number) => {
+      try {
+        const res = await fetch(`${API_URL}/admin/showcase/add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id: productId, is_featured: true, display_order: showcaseProducts.length })
+        })
+        if (res.ok) {
+          loadShowcase()
+          setSearchResults([])
+          setSearchQuery('')
+        }
+      } catch (e) {
+        alert('Ошибка добавления')
+      }
+    }
+
+    const removeFromShowcase = async (productId: number) => {
+      try {
+        const res = await fetch(`${API_URL}/admin/showcase/${productId}`, { method: 'DELETE' })
+        if (res.ok) {
+          loadShowcase()
+        }
+      } catch (e) {
+        alert('Ошибка удаления')
+      }
+    }
+
+    return (
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">⭐ Витрина (главная)</h1>
+          <Button variant="ghost" size="icon" onClick={loadShowcase} className="ml-auto">
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Search and add */}
+        <Card className="bg-amber-500/10 border-amber-500/20 p-4 mb-6">
+          <h3 className="font-bold mb-3 flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Добавить товар на витрину
+          </h3>
+          <div className="flex gap-2 mb-3">
+            <Input
+              placeholder="Поиск по названию или артикулу..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchProducts()}
+              className="bg-white/10 border-white/20"
+            />
+            <Button onClick={searchProducts} disabled={searching}>
+              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </div>
+          {searchResults.length > 0 && (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {searchResults.map(p => (
+                <div key={p.id} className="flex items-center justify-between p-2 rounded bg-white/5 hover:bg-white/10">
+                  <div className="flex items-center gap-3">
+                    {p.image_url && <img src={p.image_url} className="w-10 h-10 object-cover rounded" />}
+                    <div>
+                      <p className="text-sm font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.part_number}</p>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => addToShowcase(p.id)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Добавить
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Current showcase */}
+        <h3 className="font-bold mb-3">Товары на витрине ({showcaseProducts.length})</h3>
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Загрузка...</div>
+        ) : showcaseProducts.length === 0 ? (
+          <div className="text-center py-16">
+            <Star className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">Витрина пуста</p>
+            <p className="text-xs text-muted-foreground mt-1">Добавьте товары для отображения на главной</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {showcaseProducts.map((p, index) => (
+              <Card key={p.id} className="bg-white/5 border-white/10 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="text-muted-foreground">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs text-amber-400 font-bold w-6">#{index + 1}</span>
+                  {p.image_url && <img src={p.image_url} className="w-12 h-12 object-cover rounded" />}
+                  <div className="flex-1">
+                    <p className="font-medium">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.part_number} • {p.price_rub?.toLocaleString()} ₽</p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => removeFromShowcase(p.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Edit view
   if (view === 'edit' && editingProduct) {
     return (
@@ -980,6 +1304,42 @@ function AdminContent() {
             {stats.pendingListings > 0 && (
               <Badge className="bg-purple-500 text-white font-bold mr-2">{stats.pendingListings}</Badge>
             )}
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
+          onClick={() => { loadCategories(); setView('categories') }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 border border-cyan-500/20 shadow-lg shadow-cyan-500/10">
+                <FolderTree className="h-6 w-6 text-cyan-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">📁 Категории</p>
+                <p className="text-xs text-muted-foreground">Добавление, редактирование</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
+          onClick={() => { loadShowcase(); setView('showcase') }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/20 shadow-lg shadow-amber-500/10">
+                <Star className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">⭐ Витрина</p>
+                <p className="text-xs text-muted-foreground">Товары на главной</p>
+              </div>
+            </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
           </div>
         </Card>
