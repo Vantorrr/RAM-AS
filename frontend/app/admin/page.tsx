@@ -171,10 +171,11 @@ function AdminContent() {
   }, [])
 
   // Update seller status
-  const updateSellerStatus = async (sellerId: number, status: string, rejectionReason?: string, maxProducts?: number) => {
+  const updateSellerStatus = async (sellerId: number, status: string, rejectionReason?: string, maxProducts?: number, subscriptionTier?: string) => {
     try {
       const body: any = { status }
       if (maxProducts) body.max_products = maxProducts
+      if (subscriptionTier) body.subscription_tier = subscriptionTier
       
       const res = await fetch(`${API_URL}/marketplace/sellers/${sellerId}`, {
         method: 'PUT',
@@ -182,7 +183,11 @@ function AdminContent() {
         body: JSON.stringify(body)
       })
       if (res.ok) {
-        alert(maxProducts ? "✅ Лимит обновлен" : `✅ Статус изменен на: ${status}`)
+        let msg = `✅ Статус изменен на: ${status}`
+        if (maxProducts) msg = "✅ Лимит обновлен"
+        if (subscriptionTier) msg = `✅ Тариф изменен на ${subscriptionTier}`
+        
+        alert(msg)
         loadSellers()
         loadDashboard()
       } else {
@@ -388,28 +393,45 @@ function AdminContent() {
                     </>
                   )}
                   {seller.status === 'approved' && (
-                    <div className="flex gap-2 w-full">
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        className="flex-1"
-                        onClick={() => {
-                          const newLimit = prompt("Новый лимит товаров:", seller.max_products.toString());
-                          if (newLimit) updateSellerStatus(seller.id, 'approved', undefined, parseInt(newLimit));
-                        }}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Лимит
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={() => updateSellerStatus(seller.id, 'banned')}
-                      >
-                        <Ban className="h-4 w-4 mr-1" />
-                        Блок
-                      </Button>
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex gap-2 w-full">
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={() => {
+                            const newLimit = prompt("Новый лимит товаров:", seller.max_products.toString());
+                            if (newLimit) updateSellerStatus(seller.id, 'approved', undefined, parseInt(newLimit));
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Лимит
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={() => updateSellerStatus(seller.id, 'banned')}
+                        >
+                          <Ban className="h-4 w-4 mr-1" />
+                          Блок
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 w-full">
+                         <select 
+                            className="flex-1 h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={seller.subscription_tier || 'free'}
+                            onChange={(e) => {
+                                // @ts-ignore
+                                updateSellerStatus(seller.id, seller.status, undefined, undefined, e.target.value)
+                            }}
+                         >
+                            <option value="free">Free</option>
+                            <option value="start">Start</option>
+                            <option value="pro">Pro</option>
+                            <option value="magnate">Magnate</option>
+                         </select>
+                      </div>
                     </div>
                   )}
                   {(seller.status === 'rejected' || seller.status === 'banned') && (
