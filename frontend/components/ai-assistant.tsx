@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { API_URL } from "@/lib/config"
+import { getTelegramUser } from "@/lib/telegram"
 
 interface Message {
   role: "user" | "assistant"
@@ -41,10 +42,20 @@ export function AIAssistant() {
     try {
       const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }))
       
+      const tgUser = getTelegramUser()
+
       const res = await fetch(`${API_URL}/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history })
+        body: JSON.stringify({ 
+          messages: history,
+          user_info: tgUser ? {
+            id: tgUser.id,
+            username: tgUser.username,
+            first_name: tgUser.first_name,
+            last_name: tgUser.last_name
+          } : undefined
+        })
       })
 
       if (res.ok) {
@@ -172,5 +183,6 @@ export function AIAssistant() {
     </>
   )
 }
+
 
 

@@ -23,8 +23,15 @@ class Message(BaseModel):
     tool_calls: Optional[List[Any]] = None
     name: Optional[str] = None
 
+class UserInfo(BaseModel):
+    id: Optional[int] = None
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
 class ChatRequest(BaseModel):
     messages: List[Message]
+    user_info: Optional[UserInfo] = None
 
 SYSTEM_PROMPT_CONTENT = """
 Ты — профессиональный консультант компании "RAM US Auto Parts".
@@ -186,8 +193,29 @@ async def chat_with_ai(request: ChatRequest):
     messages = [m.dict(exclude_none=True) for m in request.messages]
     
     # Гарантируем наличие System Prompt
+    system_content = SYSTEM_PROMPT_CONTENT
+    
+    # Если есть инфо о юзере, добавляем в контекст
+    if request.user_info:
+        user_details = []
+        if request.user_info.first_name:
+            user_details.append(f"Имя: {request.user_info.first_name}")
+        if request.user_info.username:
+            user_details.append(f"Telegram: @{request.user_info.username}")
+        if request.user_info.id:
+            user_details.append(f"ID: {request.user_info.id}")
+            
+        if user_details:
+            system_content += f"\n\n👤 ИНФОРМАЦИЯ О КЛИЕНТЕ:\n" + "\n".join(user_details) + "\n(Используй эти данные при вызове notify_manager)"
+
     if not any(m['role'] == 'system' for m in messages):
-        messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT_CONTENT})
+        messages.insert(0, {"role": "system", "content": system_content})
+    else:
+        # Если system уже есть (например, от клиента?), обновляем его
+        for m in messages:
+            if m['role'] == 'system':
+                m['content'] = system_content
+                break
 
     payload = {
         "model": MODEL,
