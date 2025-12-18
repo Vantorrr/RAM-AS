@@ -59,6 +59,8 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [createdListingId, setCreatedListingId] = useState<number | null>(null)
+  const [paymentLoading, setPaymentLoading] = useState(false)
 
   useEffect(() => {
     const user = getTelegramUser()
@@ -123,6 +125,8 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
       })
 
       if (res.ok) {
+        const data = await res.json()
+        setCreatedListingId(data.id)
         setSubmitSuccess(true)
       } else {
         const data = await res.json()
@@ -132,6 +136,40 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
       setSubmitError("Ошибка сети. Попробуйте позже.")
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleListingPayment = async () => {
+    if (!createdListingId) return
+    
+    setPaymentLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/payments/create-listing-invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listing_id: createdListingId,
+          test_mode: true
+        })
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to create payment")
+      }
+
+      const data = await res.json()
+      
+      // Открываем страницу оплаты
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink(data.payment_url)
+      } else {
+        window.open(data.payment_url, "_blank")
+      }
+    } catch (err) {
+      console.error("Payment error:", err)
+      alert("Ошибка создания платежа. Попробуйте позже.")
+    } finally {
+      setPaymentLoading(false)
     }
   }
 
@@ -170,13 +208,24 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                 После оплаты размещения (200₽) и модерации ваше объявление появится в ленте.
               </p>
               <div className="space-y-2">
-                <Button className="w-full bg-green-500 hover:bg-green-600">
-                  Оплатить 200 ₽
+                <Button 
+                  className="w-full bg-green-500 hover:bg-green-600"
+                  onClick={handleListingPayment}
+                  disabled={paymentLoading}
+                >
+                  {paymentLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Создание платежа...
+                    </>
+                  ) : (
+                    "Оплатить 200 ₽"
+                  )}
                 </Button>
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => { setShowCreateForm(false); setSubmitSuccess(false) }}
+                  onClick={() => { setShowCreateForm(false); setSubmitSuccess(false); setCreatedListingId(null) }}
                 >
                   Оплатить позже
                 </Button>

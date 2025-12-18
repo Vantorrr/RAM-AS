@@ -57,6 +57,15 @@ class CreateOrderInvoiceRequest(BaseModel):
     test_mode: bool = True  # По умолчанию тестовый режим
 
 
+class CreateListingInvoiceRequest(BaseModel):
+    listing_id: int
+    test_mode: bool = True  # По умолчанию тестовый режим
+
+
+# Стоимость размещения объявления в барахолке
+LISTING_PRICE = 200  # 200 рублей
+
+
 class InvoiceResponse(BaseModel):
     invoice_id: str
     payment_url: str
@@ -295,6 +304,84 @@ async def create_order_invoice(
     )
 
 
+@router.post("/create-listing-invoice", response_model=InvoiceResponse)
+async def create_listing_invoice(
+    request: CreateListingInvoiceRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Создает счет на оплату размещения объявления в барахолке
+    """
+    
+    # Проверяем, существует ли объявление
+    result = await db.execute(
+        select(models.Listing).where(models.Listing.id == request.listing_id)
+    )
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    # Формируем payload для PayMaster API
+    payload = {
+        "merchantId": PAYMASTER_MERCHANT_ID,
+        "testMode": request.test_mode,
+        "invoice": {
+            "description": f"Размещение объявления — Барахолка RAM-US",
+            "orderNo": f"listing_{listing.id}_{int(datetime.now().timestamp())}",
+            "params": {
+                "listing_id": str(listing.id),
+                "type": "listing"
+            }
+        },
+        "amount": {
+            "value": float(LISTING_PRICE),
+            "currency": "RUB"
+        },
+        "protocol": {
+            "callbackUrl": f"{BACKEND_URL}/payments/webhook",
+            "returnUrl": f"https://t.me/ram_us_bot/app?startapp=listing_success_{listing.id}"
+        }
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {PAYMASTER_BEARER_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{PAYMASTER_API_URL}/invoices",
+            json=payload,
+            headers=headers,
+            timeout=30.0
+        )
+        
+        if response.status_code != 200:
+            print(f"❌ PayMaster API Error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"PayMaster API Error: {response.text}"
+            )
+        
+        invoice_data = response.json()
+        print(f"✅ PayMaster Response: {json.dumps(invoice_data, indent=2, ensure_ascii=False)}")
+        
+        if "paymentId" not in invoice_data or "url" not in invoice_data:
+            print(f"❌ Missing 'paymentId' or 'url' in PayMaster response: {invoice_data}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid PayMaster response: {invoice_data}"
+            )
+    
+    return InvoiceResponse(
+        invoice_id=invoice_data["paymentId"],
+        payment_url=invoice_data["url"],
+        amount=LISTING_PRICE
+    )
+
+
 @router.post("/webhook")
 async def paymaster_webhook(
     request: Request,
@@ -314,10 +401,52 @@ async def paymaster_webhook(
         invoice = body.get("invoice", {})
         params = invoice.get("params", {})
         
-        payment_type = params.get("type", "subscription")  # "order" or "subscription"
+        payment_type = params.get("type", "subscription")  # "order", "listing" or "subscription"
+        
+        # Обработка оплаты ОБЪЯВЛЕНИЯ (Барахолка)
+        if payment_type == "listing":
+            listing_id = params.get("listing_id")
+            if not listing_id:
+                print("❌ Missing listing_id in webhook")
+                return {"status": "error", "message": "Missing listing_id"}
+            
+            if status == "Settled":
+                # Обновляем статус объявления
+                result = await db.execute(
+                    select(models.Listing).where(models.Listing.id == int(listing_id))
+                )
+                listing = result.scalar_one_or_none()
+                
+                if listing:
+                    listing.is_paid = True
+                    await db.commit()
+                    
+                    # Уведомляем пользователя
+                    try:
+                        await bot.send_message(
+                            chat_id=listing.seller_telegram_id,
+                            text=f"✅ <b>Оплата подтверждена!</b>\n\n"
+                                 f"📋 Объявление: {listing.title}\n"
+                                 f"💰 Сумма: 200 ₽\n\n"
+                                 f"⏳ Объявление отправлено на модерацию.\n"
+                                 f"После проверки оно появится в ленте барахолки!",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        print(f"❌ Failed to notify user: {e}")
+                    
+                    print(f"✅ Listing {listing_id} marked as paid")
+                    return {"status": "ok", "message": "Listing payment confirmed"}
+                else:
+                    print(f"❌ Listing {listing_id} not found")
+                    return {"status": "error", "message": "Listing not found"}
+            
+            elif status in ["Cancelled", "Rejected"]:
+                print(f"⚠️ Listing payment {payment_id} failed with status: {status}")
+                return {"status": "ok", "message": "Listing payment failed"}
         
         # Обработка оплаты ЗАКАЗА
-        if payment_type == "order":
+        elif payment_type == "order":
             order_id = params.get("order_id")
             if not order_id:
                 print("❌ Missing order_id in webhook")
