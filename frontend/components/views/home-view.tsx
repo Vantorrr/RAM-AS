@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ChevronRight, Wrench, Settings, Fuel, Disc, Zap, Sparkles, Warehouse, Package, Truck, Thermometer, Wind } from "lucide-react"
 import Image from "next/image"
+import { API_URL } from "@/lib/config"
 
 interface Product {
   id: number
@@ -25,8 +26,6 @@ interface Category {
   slug: string
   children?: Category[]
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 // Иконки для категорий
 const categoryIcons: Record<string, React.ReactNode> = {

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCartStore } from "@/lib/cart-store"
 import Image from "next/image"
+import { API_URL } from "@/lib/config"
 
 interface Product {
   id: number
@@ -34,8 +35,6 @@ interface ProductDetailViewProps {
   productId: number
   onBack: () => void
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export function ProductDetailView({ productId, onBack }: ProductDetailViewProps) {
   const [product, setProduct] = useState<Product | null>(null)

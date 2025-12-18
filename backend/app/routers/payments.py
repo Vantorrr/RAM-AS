@@ -21,13 +21,17 @@ from ..bot import bot
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
-# PayMaster Configuration
-PAYMASTER_MERCHANT_ID = "5cad3313-7c95-416a-bbe8-6fb95c52ec7a"
-PAYMASTER_BEARER_TOKEN = "e82d0df805d69ebcadf379d366f2cfc662fb825f368e3c246f606f1ca643d16402f68ce0cdc2c9e37bf81d4ba99be61644cb"
+# PayMaster Configuration - ВАЖНО: используем переменные окружения!
+PAYMASTER_MERCHANT_ID = os.getenv("PAYMASTER_MERCHANT_ID", "")
+PAYMASTER_BEARER_TOKEN = os.getenv("PAYMASTER_BEARER_TOKEN", "")
 PAYMASTER_API_URL = "https://paymaster.ru/api/v2"
 # ВАЖНО: callbackUrl должен идти на БЭКЕНД, не на фронтенд!
-BACKEND_URL = os.getenv("BACKEND_URL", "https://ram-as-production.up.railway.app")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://ram-us-production.up.railway.app")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://alert-joy-production.up.railway.app")
+
+# Проверка конфигурации при старте
+if not PAYMASTER_MERCHANT_ID or not PAYMASTER_BEARER_TOKEN:
+    print("⚠️ WARNING: PAYMASTER_MERCHANT_ID or PAYMASTER_BEARER_TOKEN not set!")
 
 # Subscription Plans Pricing (in RUB)
 SUBSCRIPTION_PRICES = {

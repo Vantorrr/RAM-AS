@@ -8,6 +8,7 @@ import { ProductCard, ProductCardSkeleton } from "@/components/product-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { API_URL } from "@/lib/config"
 
 interface Category {
     id: number
@@ -26,8 +27,6 @@ interface Product {
     is_in_stock: boolean
     is_installment_available?: boolean
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const LIMIT = 20
 
 const categoryIcons: Record<string, React.ReactNode> = {

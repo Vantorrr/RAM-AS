@@ -10,6 +10,7 @@ import { ArrowLeft, Package, CreditCard, Truck, MapPin, Check } from "lucide-rea
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { getTelegramUser } from "@/lib/telegram"
+import { API_URL } from "@/lib/config"
 
 // Маска телефона: +7 (XXX) XXX-XX-XX
 function formatPhoneNumber(value: string): string {
@@ -42,8 +43,6 @@ interface CheckoutViewProps {
   onBack: () => void
   onSuccess: () => void
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
   const { items, getTotalPrice, clearCart } = useCartStore()
