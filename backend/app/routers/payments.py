@@ -467,8 +467,13 @@ async def paymaster_webhook(
                 order = result.scalar_one_or_none()
                 
                 if order:
-                    # Сохраняем данные ДО коммита
-                    order_items = list(order.items)
+                    # Сохраняем ВСЕ данные в простые Python объекты ДО коммита
+                    order_items_data = [{
+                        "product_id": item.product_id,
+                        "quantity": item.quantity,
+                        "price_at_purchase": item.price_at_purchase
+                    } for item in order.items]
+                    
                     order_data = {
                         "id": order.id,
                         "user_name": order.user_name,
@@ -499,12 +504,12 @@ async def paymaster_webhook(
                                 "to_city_code": order_data["cdek_city_code"],
                                 "tariff_code": order_data["cdek_tariff_code"],
                                 "items": [{
-                                    "name": f"Товар #{item.product_id}",
-                                    "sku": str(item.product_id),
-                                    "payment_value": item.price_at_purchase,
+                                    "name": f"Товар #{item['product_id']}",
+                                    "sku": str(item["product_id"]),
+                                    "payment_value": item["price_at_purchase"],
                                     "weight": 500,
-                                    "amount": item.quantity
-                                } for item in order_items]
+                                    "amount": item["quantity"]
+                                } for item in order_items_data]
                             }
                             
                             # СДЭК требует ИЛИ delivery_point ИЛИ address
