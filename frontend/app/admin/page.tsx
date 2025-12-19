@@ -183,7 +183,7 @@ function AdminContent() {
   const loadListings = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/marketplace/listings/pending`)
+      const res = await fetch(`${API_URL}/marketplace/listings/all`)
       if (res.ok) {
         const data = await res.json()
         setListings(data)
@@ -389,6 +389,25 @@ function AdminContent() {
         loadDashboard()
       } else {
         alert('❌ Ошибка обновления')
+      }
+    } catch (err) {
+      alert('❌ Ошибка сети')
+    }
+  }
+
+  // Delete listing
+  const deleteListing = async (listingId: number) => {
+    if (!confirm('Удалить объявление?')) return
+    try {
+      const res = await fetch(`${API_URL}/marketplace/listings/${listingId}`, {
+        method: 'DELETE'
+      })
+      if (res.ok) {
+        alert('✅ Объявление удалено')
+        loadListings()
+        loadDashboard()
+      } else {
+        alert('❌ Ошибка удаления')
       }
     } catch (err) {
       alert('❌ Ошибка сети')
@@ -671,6 +690,17 @@ function AdminContent() {
                 </div>
 
                 <div className="flex items-center gap-2 mb-3">
+                  <Badge className={
+                    listing.status === 'approved' ? 'bg-green-500/20 text-green-400 border-0' :
+                    listing.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border-0' :
+                    listing.status === 'rejected' ? 'bg-red-500/20 text-red-400 border-0' :
+                    'bg-gray-500/20 text-gray-400 border-0'
+                  }>
+                    {listing.status === 'approved' ? '✅ Одобрено' :
+                     listing.status === 'pending' ? '⏳ На модерации' :
+                     listing.status === 'rejected' ? '❌ Отклонено' :
+                     '📝 Черновик'}
+                  </Badge>
                   <Badge className={listing.is_paid ? 'bg-green-500/20 text-green-400 border-0' : 'bg-yellow-500/20 text-yellow-400 border-0'}>
                     {listing.is_paid ? '💰 Оплачено' : '⏳ Не оплачено'}
                   </Badge>
@@ -681,25 +711,36 @@ function AdminContent() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => updateListingStatus(listing.id, 'approved')}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Одобрить
-                  </Button>
+                  {listing.status !== 'approved' && (
+                    <Button 
+                      size="sm" 
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => updateListingStatus(listing.id, 'approved')}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Одобрить
+                    </Button>
+                  )}
+                  {listing.status !== 'rejected' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const reason = prompt('Причина отклонения:')
+                        if (reason) updateListingStatus(listing.id, 'rejected', reason)
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Отклонить
+                    </Button>
+                  )}
                   <Button 
                     size="sm" 
                     variant="destructive"
-                    className="flex-1"
-                    onClick={() => {
-                      const reason = prompt('Причина отклонения:')
-                      if (reason) updateListingStatus(listing.id, 'rejected', reason)
-                    }}
+                    onClick={() => deleteListing(listing.id)}
                   >
-                    <X className="h-4 w-4 mr-1" />
-                    Отклонить
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </Card>
