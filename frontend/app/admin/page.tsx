@@ -243,6 +243,110 @@ function AdminContent() {
     }
   }, [])
 
+  // Showcase: поиск товаров для добавления
+  const searchShowcaseProducts = useCallback(async () => {
+    if (!showcaseSearchQuery.trim()) return
+    setShowcaseSearching(true)
+    try {
+      const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(showcaseSearchQuery)}&limit=20`)
+      if (res.ok) {
+        const data = await res.json()
+        setShowcaseSearchResults(data)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setShowcaseSearching(false)
+    }
+  }, [showcaseSearchQuery])
+
+  // Showcase: добавить товар на витрину
+  const addToShowcase = useCallback(async (productId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/admin/showcase/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, is_featured: true, display_order: showcaseProducts.length })
+      })
+      if (res.ok) {
+        loadShowcase()
+        setShowcaseSearchResults([])
+        setShowcaseSearchQuery('')
+        alert('✅ Товар добавлен на витрину!')
+      } else {
+        alert('❌ Ошибка добавления')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+    }
+  }, [showcaseProducts.length, loadShowcase])
+
+  // Showcase: убрать товар с витрины
+  const removeFromShowcase = useCallback(async (productId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/admin/showcase/${productId}`, { method: 'DELETE' })
+      if (res.ok) {
+        loadShowcase()
+        alert('✅ Товар убран с витрины')
+      } else {
+        alert('❌ Ошибка удаления')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+    }
+  }, [loadShowcase])
+
+  // Categories: создать категорию
+  const createCategory = useCallback(async () => {
+    if (!newCatName || !newCatSlug) {
+      alert('Заполните название и slug!')
+      return
+    }
+    setCatSaving(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCatName,
+          slug: newCatSlug,
+          parent_id: newCatParent
+        })
+      })
+      if (res.ok) {
+        setNewCatName('')
+        setNewCatSlug('')
+        setNewCatParent(null)
+        loadCategories()
+        alert('✅ Категория создана!')
+      } else {
+        const err = await res.json()
+        alert(err.detail || '❌ Ошибка создания')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+    } finally {
+      setCatSaving(false)
+    }
+  }, [newCatName, newCatSlug, newCatParent, loadCategories])
+
+  // Categories: удалить категорию
+  const deleteCategory = useCallback(async (id: number) => {
+    if (!confirm('Удалить категорию?')) return
+    try {
+      const res = await fetch(`${API_URL}/admin/categories/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        loadCategories()
+        alert('✅ Категория удалена')
+      } else {
+        const err = await res.json()
+        alert(err.detail || '❌ Ошибка удаления')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+    }
+  }, [loadCategories])
+
   // Update seller status
   const updateSellerStatus = async (sellerId: number, status: string, rejectionReason?: string, maxProducts?: number, subscriptionTier?: string) => {
     try {
@@ -689,50 +793,6 @@ function AdminContent() {
 
   // ============ CATEGORIES VIEW ============
   if (view === 'categories') {
-    const createCategory = async () => {
-      if (!newCatName || !newCatSlug) return
-      setCatSaving(true)
-      try {
-        const res = await fetch(`${API_URL}/admin/categories`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newCatName,
-            slug: newCatSlug,
-            parent_id: newCatParent
-          })
-        })
-        if (res.ok) {
-          setNewCatName('')
-          setNewCatSlug('')
-          setNewCatParent(null)
-          loadCategories()
-        } else {
-          const err = await res.json()
-          alert(err.detail || 'Ошибка создания')
-        }
-      } catch (e) {
-        alert('Ошибка сети')
-      } finally {
-        setCatSaving(false)
-      }
-    }
-
-    const deleteCategory = async (id: number) => {
-      if (!confirm('Удалить категорию?')) return
-      try {
-        const res = await fetch(`${API_URL}/admin/categories/${id}`, { method: 'DELETE' })
-        if (res.ok) {
-          loadCategories()
-        } else {
-          const err = await res.json()
-          alert(err.detail || 'Ошибка удаления')
-        }
-      } catch (e) {
-        alert('Ошибка сети')
-      }
-    }
-
     const renderCategoryTree = (cats: any[], level = 0) => {
       return cats.map(cat => (
         <div key={cat.id}>
@@ -833,50 +893,6 @@ function AdminContent() {
 
   // ============ SHOWCASE VIEW ============
   if (view === 'showcase') {
-    const searchShowcaseProducts = async () => {
-      if (!showcaseSearchQuery.trim()) return
-      setShowcaseSearching(true)
-      try {
-        const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(showcaseSearchQuery)}&limit=20`)
-        if (res.ok) {
-          const data = await res.json()
-          setShowcaseSearchResults(data)
-        }
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setShowcaseSearching(false)
-      }
-    }
-
-    const addToShowcase = async (productId: number) => {
-      try {
-        const res = await fetch(`${API_URL}/admin/showcase/add`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ product_id: productId, is_featured: true, display_order: showcaseProducts.length })
-        })
-        if (res.ok) {
-          loadShowcase()
-          setShowcaseSearchResults([])
-          setShowcaseSearchQuery('')
-        }
-      } catch (e) {
-        alert('Ошибка добавления')
-      }
-    }
-
-    const removeFromShowcase = async (productId: number) => {
-      try {
-        const res = await fetch(`${API_URL}/admin/showcase/${productId}`, { method: 'DELETE' })
-        if (res.ok) {
-          loadShowcase()
-        }
-      } catch (e) {
-        alert('Ошибка удаления')
-      }
-    }
-
     return (
       <div className="h-full overflow-y-auto bg-background text-foreground p-4">
         <div className="flex items-center gap-3 mb-6">
