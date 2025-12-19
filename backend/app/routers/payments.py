@@ -6,6 +6,7 @@ API v2 Documentation: https://paymaster.ru/docs/ru/api
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import Optional
 import httpx
@@ -457,42 +458,55 @@ async def paymaster_webhook(
                 return {"status": "error", "message": "Missing order_id"}
             
             if status == "Settled":
-                # Обновляем статус заказа
+                # Обновляем статус заказа (загружаем вместе с items)
                 result = await db.execute(
-                    select(models.Order).where(models.Order.id == int(order_id))
+                    select(models.Order)
+                    .where(models.Order.id == int(order_id))
+                    .options(selectinload(models.Order.items))
                 )
                 order = result.scalar_one_or_none()
                 
                 if order:
+                    # Сохраняем данные ДО коммита
+                    order_items = list(order.items)
+                    order_data = {
+                        "id": order.id,
+                        "user_name": order.user_name,
+                        "user_phone": order.user_phone,
+                        "user_telegram_id": order.user_telegram_id,
+                        "total_amount": order.total_amount,
+                        "delivery_type": order.delivery_type,
+                        "delivery_address": order.delivery_address,
+                        "cdek_tariff_code": order.cdek_tariff_code,
+                        "cdek_city_code": order.cdek_city_code,
+                        "cdek_city_name": order.cdek_city_name,
+                        "cdek_pvz_code": order.cdek_pvz_code,
+                        "cdek_pvz_address": order.cdek_pvz_address,
+                    }
+                    
                     order.status = "paid"
                     await db.commit()
                     
                     # Создаём заказ в СДЭК если указаны данные доставки
                     cdek_info = ""
-                    if order.cdek_tariff_code and order.cdek_city_code:
+                    if order_data["cdek_tariff_code"] and order_data["cdek_city_code"]:
                         try:
                             from .cdek import get_cdek_token, CDEK_API_URL, FROM_CITY_CODE
                             import httpx
                             
                             token = await get_cdek_token()
                             
-                            # Получаем товары заказа
-                            items_result = await db.execute(
-                                select(models.OrderItem).where(models.OrderItem.order_id == order.id)
-                            )
-                            order_items = items_result.scalars().all()
-                            
                             cdek_order_data = {
-                                "number": f"RAM-{order.id}",
-                                "tariff_code": order.cdek_tariff_code,
+                                "number": f"RAM-{order_data['id']}",
+                                "tariff_code": order_data["cdek_tariff_code"],
                                 "sender": {"name": "RAM-US Auto Parts"},
                                 "recipient": {
-                                    "name": order.user_name or "Покупатель",
-                                    "phones": [{"number": order.user_phone or ""}]
+                                    "name": order_data["user_name"] or "Покупатель",
+                                    "phones": [{"number": order_data["user_phone"] or ""}]
                                 },
                                 "from_location": {"code": FROM_CITY_CODE},
                                 "packages": [{
-                                    "number": f"RAM-{order.id}-1",
+                                    "number": f"RAM-{order_data['id']}-1",
                                     "weight": max(500, len(order_items) * 500),
                                     "items": [{
                                         "name": f"Товар #{item.product_id}",
@@ -506,14 +520,14 @@ async def paymaster_webhook(
                             }
                             
                             # СДЭК требует ИЛИ delivery_point ИЛИ to_location.address
-                            if order.cdek_pvz_code:
+                            if order_data["cdek_pvz_code"]:
                                 # Доставка до ПВЗ
-                                cdek_order_data["delivery_point"] = order.cdek_pvz_code
+                                cdek_order_data["delivery_point"] = order_data["cdek_pvz_code"]
                             else:
                                 # Доставка курьером до адреса
                                 cdek_order_data["to_location"] = {
-                                    "code": order.cdek_city_code,
-                                    "address": order.delivery_address or "Адрес уточняется"
+                                    "code": order_data["cdek_city_code"],
+                                    "address": order_data["delivery_address"] or "Адрес уточняется"
                                 }
                             
                             async with httpx.AsyncClient() as client:
@@ -525,11 +539,18 @@ async def paymaster_webhook(
                                 cdek_result = resp.json()
                                 
                                 if "entity" in cdek_result:
-                                    order.cdek_uuid = cdek_result["entity"].get("uuid")
-                                    order.cdek_number = cdek_result["entity"].get("cdek_number")
+                                    # Обновляем заказ в БД
+                                    await db.execute(
+                                        models.Order.__table__.update()
+                                        .where(models.Order.id == order_data["id"])
+                                        .values(
+                                            cdek_uuid=cdek_result["entity"].get("uuid"),
+                                            cdek_number=cdek_result["entity"].get("cdek_number")
+                                        )
+                                    )
                                     await db.commit()
-                                    cdek_info = f"\n📦 Накладная СДЭК: {order.cdek_number or 'создаётся...'}"
-                                    print(f"✅ CDEK order created: {order.cdek_uuid}")
+                                    cdek_info = f"\n📦 Накладная СДЭК: {cdek_result['entity'].get('cdek_number') or 'создаётся...'}"
+                                    print(f"✅ CDEK order created: {cdek_result['entity'].get('uuid')}")
                                 else:
                                     print(f"❌ CDEK error: {cdek_result}")
                         except Exception as e:
@@ -538,18 +559,18 @@ async def paymaster_webhook(
                     # Уведомляем пользователя
                     try:
                         delivery_text = ""
-                        if order.delivery_type == "cdek_pvz":
-                            delivery_text = f"📍 ПВЗ: {order.cdek_pvz_address}"
-                        elif order.delivery_type == "cdek_door":
-                            delivery_text = f"🚚 Курьер: {order.delivery_address}"
+                        if order_data["delivery_type"] == "cdek_pvz":
+                            delivery_text = f"📍 ПВЗ: {order_data['cdek_pvz_address']}"
+                        elif order_data["delivery_type"] == "cdek_door":
+                            delivery_text = f"🚚 Курьер: {order_data['delivery_address']}"
                         else:
                             delivery_text = "🏪 Самовывоз"
                         
                         await bot.send_message(
-                            chat_id=order.user_telegram_id,
+                            chat_id=order_data["user_telegram_id"],
                             text=f"✅ <b>Оплата подтверждена!</b>\n\n"
-                                 f"📦 Заказ #{order.id}\n"
-                                 f"💰 Сумма: {order.total_amount:,.0f} ₽\n"
+                                 f"📦 Заказ #{order_data['id']}\n"
+                                 f"💰 Сумма: {order_data['total_amount']:,.0f} ₽\n"
                                  f"{delivery_text}{cdek_info}\n\n"
                                  f"Спасибо за покупку! 🙏",
                             parse_mode="HTML"
@@ -563,10 +584,10 @@ async def paymaster_webhook(
                             await bot.send_message(
                                 chat_id=admin_id,
                                 text=f"🎉 <b>НОВЫЙ ОПЛАЧЕННЫЙ ЗАКАЗ!</b>\n\n"
-                                     f"📦 Заказ #{order.id}\n"
-                                     f"👤 {order.user_name} ({order.user_phone})\n"
-                                     f"💰 {order.total_amount:,.0f} ₽\n"
-                                     f"🚚 {order.cdek_city_name or 'Самовывоз'}{cdek_info}",
+                                     f"📦 Заказ #{order_data['id']}\n"
+                                     f"👤 {order_data['user_name']} ({order_data['user_phone']})\n"
+                                     f"💰 {order_data['total_amount']:,.0f} ₽\n"
+                                     f"🚚 {order_data['cdek_city_name'] or 'Самовывоз'}{cdek_info}",
                                 parse_mode="HTML"
                             )
                     except Exception as e:
