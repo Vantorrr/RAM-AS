@@ -17,7 +17,7 @@ import os
 
 from .. import models, schemas
 from ..database import get_db
-from ..bot import bot
+from ..bot import bot, ADMIN_CHAT_IDS
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -467,18 +467,105 @@ async def paymaster_webhook(
                     order.status = "paid"
                     await db.commit()
                     
+                    # Создаём заказ в СДЭК если указаны данные доставки
+                    cdek_info = ""
+                    if order.cdek_tariff_code and order.cdek_city_code:
+                        try:
+                            from .cdek import get_cdek_token, CDEK_API_URL, FROM_CITY_CODE
+                            import httpx
+                            
+                            token = await get_cdek_token()
+                            
+                            # Получаем товары заказа
+                            items_result = await db.execute(
+                                select(models.OrderItem).where(models.OrderItem.order_id == order.id)
+                            )
+                            order_items = items_result.scalars().all()
+                            
+                            cdek_order_data = {
+                                "number": f"RAM-{order.id}",
+                                "tariff_code": order.cdek_tariff_code,
+                                "sender": {"name": "RAM-US Auto Parts"},
+                                "recipient": {
+                                    "name": order.user_name or "Покупатель",
+                                    "phones": [{"number": order.user_phone or ""}]
+                                },
+                                "from_location": {"code": FROM_CITY_CODE},
+                                "to_location": {"code": order.cdek_city_code},
+                                "packages": [{
+                                    "number": f"RAM-{order.id}-1",
+                                    "weight": max(500, len(order_items) * 500),
+                                    "items": [{
+                                        "name": f"Товар #{item.product_id}",
+                                        "ware_key": str(item.product_id),
+                                        "payment": {"value": 0},
+                                        "cost": item.price_at_purchase,
+                                        "weight": 500,
+                                        "amount": item.quantity
+                                    } for item in order_items]
+                                }]
+                            }
+                            
+                            if order.cdek_pvz_code:
+                                cdek_order_data["delivery_point"] = order.cdek_pvz_code
+                            elif order.delivery_address:
+                                cdek_order_data["to_location"]["address"] = order.delivery_address
+                            
+                            async with httpx.AsyncClient() as client:
+                                resp = await client.post(
+                                    f"{CDEK_API_URL}/orders",
+                                    headers={"Authorization": f"Bearer {token}"},
+                                    json=cdek_order_data
+                                )
+                                cdek_result = resp.json()
+                                
+                                if "entity" in cdek_result:
+                                    order.cdek_uuid = cdek_result["entity"].get("uuid")
+                                    order.cdek_number = cdek_result["entity"].get("cdek_number")
+                                    await db.commit()
+                                    cdek_info = f"\n📦 Накладная СДЭК: {order.cdek_number or 'создаётся...'}"
+                                    print(f"✅ CDEK order created: {order.cdek_uuid}")
+                                else:
+                                    print(f"❌ CDEK error: {cdek_result}")
+                        except Exception as e:
+                            print(f"❌ Failed to create CDEK order: {e}")
+                    
                     # Уведомляем пользователя
                     try:
+                        delivery_text = ""
+                        if order.delivery_type == "cdek_pvz":
+                            delivery_text = f"📍 ПВЗ: {order.cdek_pvz_address}"
+                        elif order.delivery_type == "cdek_door":
+                            delivery_text = f"🚚 Курьер: {order.delivery_address}"
+                        else:
+                            delivery_text = "🏪 Самовывоз"
+                        
                         await bot.send_message(
                             chat_id=order.user_telegram_id,
                             text=f"✅ <b>Оплата подтверждена!</b>\n\n"
-                                 f"📦 Заказ #{order.id} оплачен\n"
-                                 f"💰 Сумма: {order.total_amount} ₽\n\n"
-                                 f"Скоро свяжемся с вами для подтверждения доставки!",
+                                 f"📦 Заказ #{order.id}\n"
+                                 f"💰 Сумма: {order.total_amount:,.0f} ₽\n"
+                                 f"{delivery_text}{cdek_info}\n\n"
+                                 f"Спасибо за покупку! 🙏",
                             parse_mode="HTML"
                         )
                     except Exception as e:
                         print(f"❌ Failed to notify user: {e}")
+                    
+                    # Уведомляем менеджеров
+                    try:
+                        for admin_id in ADMIN_CHAT_IDS:
+                            await bot.send_message(
+                                chat_id=admin_id,
+                                text=f"🎉 <b>НОВЫЙ ОПЛАЧЕННЫЙ ЗАКАЗ!</b>\n\n"
+                                     f"📦 Заказ #{order.id}\n"
+                                     f"👤 {order.user_name} ({order.user_phone})\n"
+                                     f"💰 {order.total_amount:,.0f} ₽\n"
+                                     f"🚚 {order.cdek_city_name or 'Самовывоз'}{cdek_info}",
+                                parse_mode="HTML"
+                            )
+                    except Exception as e:
+                        print(f"❌ Failed to notify admins: {e}")
                     
                     print(f"✅ Order {order_id} marked as paid")
                     return {"status": "ok", "message": "Order payment confirmed"}
