@@ -26,7 +26,7 @@ PAYMASTER_MERCHANT_ID = os.getenv("PAYMASTER_MERCHANT_ID", "")
 PAYMASTER_BEARER_TOKEN = os.getenv("PAYMASTER_BEARER_TOKEN", "")
 PAYMASTER_API_URL = "https://paymaster.ru/api/v2"
 # ВАЖНО: callbackUrl должен идти на БЭКЕНД, не на фронтенд!
-BACKEND_URL = os.getenv("BACKEND_URL", "https://ram-us-production.up.railway.app")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://ram-as-production.up.railway.app")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://alert-joy-production.up.railway.app")
 
 # Проверка конфигурации при старте
