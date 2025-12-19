@@ -491,7 +491,6 @@ async def paymaster_webhook(
                                     "phones": [{"number": order.user_phone or ""}]
                                 },
                                 "from_location": {"code": FROM_CITY_CODE},
-                                "to_location": {"code": order.cdek_city_code},
                                 "packages": [{
                                     "number": f"RAM-{order.id}-1",
                                     "weight": max(500, len(order_items) * 500),
@@ -506,10 +505,16 @@ async def paymaster_webhook(
                                 }]
                             }
                             
+                            # СДЭК требует ИЛИ delivery_point ИЛИ to_location.address
                             if order.cdek_pvz_code:
+                                # Доставка до ПВЗ
                                 cdek_order_data["delivery_point"] = order.cdek_pvz_code
-                            elif order.delivery_address:
-                                cdek_order_data["to_location"]["address"] = order.delivery_address
+                            else:
+                                # Доставка курьером до адреса
+                                cdek_order_data["to_location"] = {
+                                    "code": order.cdek_city_code,
+                                    "address": order.delivery_address or "Адрес уточняется"
+                                }
                             
                             async with httpx.AsyncClient() as client:
                                 resp = await client.post(
