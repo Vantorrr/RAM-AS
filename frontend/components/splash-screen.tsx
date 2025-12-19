@@ -7,32 +7,53 @@ import { hapticFeedback } from "@/lib/telegram"
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
-    // Звук (THX Deep Note style)
-    const audio = new Audio('/sounds/engine_start.mp3')
-    audio.volume = 0.8
+    // BMW V8 Twin Turbo Sound 🔥
+    const audio = new Audio('/sounds/bmw-zvuk-motora-s-turbinami-v8.mp3')
+    audio.volume = 0.9
     audio.play().catch(e => console.log("Audio autoplay prevented:", e))
 
-    // Начальный удар
+    // Стартер - серия быстрых ударов
     hapticFeedback('heavy')
+    setTimeout(() => hapticFeedback('medium'), 100)
+    setTimeout(() => hapticFeedback('medium'), 200)
+    setTimeout(() => hapticFeedback('heavy'), 350)
     
-    // Нарастающая вибрация (гул)
-    const vibrationInterval = setInterval(() => {
-      hapticFeedback('light')
-    }, 150)
+    // V8 заводится - глубокая вибрация на низких оборотах
+    const lowRumble = setInterval(() => {
+      hapticFeedback('medium')
+    }, 200)
     
-    // Завершение (даем звуку раскрыться)
-    const timer = setTimeout(() => {
-      clearInterval(vibrationInterval)
-      // Финальный аккорд
+    // Через 1 сек - обороты растут, вибрация учащается
+    const rpmRise = setTimeout(() => {
+      clearInterval(lowRumble)
       hapticFeedback('heavy')
-      setTimeout(() => hapticFeedback('heavy'), 150)
-      setTimeout(() => hapticFeedback('success'), 400)
-      onComplete()
-    }, 4500)
+      
+      // Высокие обороты - быстрая пульсация
+      const highRpm = setInterval(() => {
+        hapticFeedback('light')
+      }, 80)
+      
+      // Перегазовка на 2.5 сек
+      setTimeout(() => {
+        hapticFeedback('heavy')
+        setTimeout(() => hapticFeedback('heavy'), 100)
+        setTimeout(() => hapticFeedback('heavy'), 200)
+      }, 1500)
+      
+      // Финал - V8 рычит и затихает
+      setTimeout(() => {
+        clearInterval(highRpm)
+        hapticFeedback('heavy')
+        setTimeout(() => hapticFeedback('medium'), 150)
+        setTimeout(() => hapticFeedback('success'), 400)
+        onComplete()
+      }, 2500)
+      
+    }, 1000)
     
     return () => {
-      clearTimeout(timer)
-      clearInterval(vibrationInterval)
+      clearInterval(lowRumble)
+      clearTimeout(rpmRise)
       audio.pause()
     }
   }, [onComplete])
@@ -132,10 +153,10 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
             className="mt-12 h-1 w-32 overflow-hidden rounded-full bg-secondary"
          >
              <motion.div
-                className="h-full bg-primary"
+                className="h-full bg-gradient-to-r from-ram-red to-orange-500"
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 4.5, ease: "easeInOut" }}
+                transition={{ duration: 3.5, ease: "easeOut" }}
              />
          </motion.div>
       </div>
