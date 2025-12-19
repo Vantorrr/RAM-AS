@@ -28,25 +28,33 @@ async def get_all_categories(db: AsyncSession = Depends(get_db)):
 @router.get("/categories/tree")
 async def get_categories_tree(db: AsyncSession = Depends(get_db)):
     """Получить дерево категорий"""
+    # Загружаем все категории
     result = await db.execute(
-        select(models.Category)
-        .options(selectinload(models.Category.children))
-        .where(models.Category.parent_id == None)
-        .order_by(models.Category.name)
+        select(models.Category).order_by(models.Category.name)
     )
-    categories = result.scalars().all()
+    all_categories = result.scalars().all()
     
-    def build_tree(cat):
-        return {
+    # Строим дерево вручную
+    cat_dict = {}
+    for cat in all_categories:
+        cat_dict[cat.id] = {
             "id": cat.id,
             "name": cat.name,
             "slug": cat.slug,
             "image_url": cat.image_url,
             "parent_id": cat.parent_id,
-            "children": [build_tree(child) for child in cat.children]
+            "children": []
         }
     
-    return [build_tree(cat) for cat in categories]
+    # Собираем дерево
+    root_cats = []
+    for cat in all_categories:
+        if cat.parent_id is None:
+            root_cats.append(cat_dict[cat.id])
+        elif cat.parent_id in cat_dict:
+            cat_dict[cat.parent_id]["children"].append(cat_dict[cat.id])
+    
+    return root_cats
 
 
 @router.post("/categories", response_model=schemas.Category)
