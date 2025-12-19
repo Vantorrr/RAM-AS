@@ -231,12 +231,20 @@ async def create_cdek_order(request: CreateOrderRequest):
         )
         
         data = response.json()
+        print(f"📦 CDEK Response: {data}")
         
-        if "error" in data or response.status_code >= 400:
-            raise HTTPException(
-                status_code=400, 
-                detail=data.get("error", {}).get("message", "Ошибка создания заказа СДЭК")
-            )
+        # Проверяем на ошибки
+        if response.status_code >= 400:
+            print(f"❌ CDEK HTTP Error: {response.status_code}")
+            raise HTTPException(status_code=400, detail=str(data))
+        
+        # CDEK может вернуть requests с ошибками
+        if "requests" in data:
+            errors = data["requests"][0].get("errors", [])
+            if errors:
+                error_msg = "; ".join([e.get("message", str(e)) for e in errors])
+                print(f"❌ CDEK Errors: {error_msg}")
+                raise HTTPException(status_code=400, detail=error_msg)
         
         return {
             "uuid": data.get("entity", {}).get("uuid"),
