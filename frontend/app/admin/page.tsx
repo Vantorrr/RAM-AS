@@ -215,7 +215,7 @@ function AdminContent() {
   const loadCategories = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/admin/categories/tree`)
+      const res = await fetch(`${API_URL}/api/admin/categories/tree`)
       if (res.ok) {
         const data = await res.json()
         setCategories(data)
@@ -231,7 +231,7 @@ function AdminContent() {
   const loadShowcase = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/admin/showcase`)
+      const res = await fetch(`${API_URL}/api/admin/showcase`)
       if (res.ok) {
         const data = await res.json()
         setShowcaseProducts(data)
@@ -263,7 +263,7 @@ function AdminContent() {
   // Showcase: добавить товар на витрину
   const addToShowcase = useCallback(async (productId: number) => {
     try {
-      const res = await fetch(`${API_URL}/admin/showcase/add`, {
+      const res = await fetch(`${API_URL}/api/admin/showcase/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: productId, is_featured: true, display_order: showcaseProducts.length })
@@ -284,7 +284,7 @@ function AdminContent() {
   // Showcase: убрать товар с витрины
   const removeFromShowcase = useCallback(async (productId: number) => {
     try {
-      const res = await fetch(`${API_URL}/admin/showcase/${productId}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/showcase/${productId}`, { method: 'DELETE' })
       if (res.ok) {
         loadShowcase()
         alert('✅ Товар убран с витрины')
@@ -304,7 +304,7 @@ function AdminContent() {
     }
     setCatSaving(true)
     try {
-      const res = await fetch(`${API_URL}/admin/categories`, {
+      const res = await fetch(`${API_URL}/api/admin/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -334,7 +334,7 @@ function AdminContent() {
   const deleteCategory = useCallback(async (id: number) => {
     if (!confirm('Удалить категорию?')) return
     try {
-      const res = await fetch(`${API_URL}/admin/categories/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { method: 'DELETE' })
       if (res.ok) {
         loadCategories()
         alert('✅ Категория удалена')

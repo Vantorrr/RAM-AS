@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from .. import models, schemas
 from ..database import get_db
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 # ============ КАТЕГОРИИ ============
