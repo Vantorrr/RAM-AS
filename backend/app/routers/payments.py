@@ -431,8 +431,9 @@ async def paymaster_webhook(
                     }
                     
                     listing.is_paid = True
+                    listing.status = "pending"  # Отправляем на модерацию
                     await db.commit()
-                    print(f"✅ Listing {listing_id} marked as paid")
+                    print(f"✅ Listing {listing_id} marked as paid and sent to moderation")
                     
                     # Уведомляем пользователя (используем сохранённые данные)
                     try:
@@ -448,6 +449,20 @@ async def paymaster_webhook(
                         print(f"✅ User {listing_data['seller_telegram_id']} notified")
                     except Exception as e:
                         print(f"❌ Failed to notify user: {e}")
+                    
+                    # Уведомляем админов о новом объявлении
+                    try:
+                        for admin_id in ADMIN_CHAT_IDS:
+                            await bot.send_message(
+                                chat_id=admin_id,
+                                text=f"📋 <b>Новое объявление на модерацию!</b>\n\n"
+                                     f"📦 {listing_data['title']}\n"
+                                     f"🆔 ID: {listing_data['id']}\n\n"
+                                     f"Проверьте в админке: /admin → Барахолка",
+                                parse_mode="HTML"
+                            )
+                    except Exception as e:
+                        print(f"❌ Failed to notify admins: {e}")
                     return {"status": "ok", "message": "Listing payment confirmed"}
                 else:
                     print(f"❌ Listing {listing_id} not found")
