@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Package, CreditCard, Truck, MapPin, Check, Search, Loader2, Building2 } from "lucide-react"
+import { ArrowLeft, Package, CreditCard, MapPin, Check, Search, Loader2, Building2 } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { getTelegramUser } from "@/lib/telegram"
@@ -380,10 +380,9 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
             <h3 className="font-semibold">Способ получения</h3>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             {[
               { type: 'cdek_pvz' as const, icon: Building2, label: 'ПВЗ СДЭК' },
-              { type: 'cdek_door' as const, icon: Truck, label: 'Курьер' },
               { type: 'pickup' as const, icon: MapPin, label: 'Самовывоз' },
             ].map(({ type, icon: Icon, label }) => (
               <div 
@@ -518,19 +517,6 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
                 </div>
               )}
 
-              {/* Адрес для курьера */}
-              {deliveryType === 'cdek_door' && selectedCity && (
-                <div className="space-y-2 animate-in fade-in">
-                  <Label>Адрес доставки</Label>
-                  <Textarea
-                    placeholder="Улица, дом, квартира"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    required
-                    className="bg-white/5 border-white/10"
-                  />
-                </div>
-              )}
             </div>
           )}
 
