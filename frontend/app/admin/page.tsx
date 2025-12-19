@@ -215,7 +215,7 @@ function AdminContent() {
   const loadCategories = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/categories/tree`)
+      const res = await fetch(`${API_URL}/categories/tree`)
       if (res.ok) {
         const data = await res.json()
         setCategories(data)
