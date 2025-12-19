@@ -16,8 +16,11 @@ from .routers import marketplace, ai, favorites, payments, cdek
 from .routers import admin as admin_router
 
 # Create uploads directory
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+# Используем Railway Volume для хранения файлов
+# В продакшене /data — это примонтированный Volume
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"📁 Upload directory: {UPLOAD_DIR}")
 
 app = FastAPI(
     title="RAM US Auto Parts",
