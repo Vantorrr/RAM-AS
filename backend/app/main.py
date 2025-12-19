@@ -356,6 +356,19 @@ async def startup():
             print("✅ Added display_order column to products")
         except Exception as e:
             print(f"⚠️ display_order column: {e}")
+        
+        # Миграции для категорий
+        try:
+            await conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES categories(id)"))
+            print("✅ Added parent_id column to categories")
+        except Exception as e:
+            print(f"⚠️ parent_id column: {e}")
+        
+        try:
+            await conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url VARCHAR"))
+            print("✅ Added image_url column to categories")
+        except Exception as e:
+            print(f"⚠️ image_url column: {e}")
     
     print("✅ Database ready!")
     
