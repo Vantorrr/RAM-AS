@@ -530,6 +530,17 @@ export function BaraholkaView({ onBack }: { onBack: () => void }) {
                 </div>
               )}
               <CardContent className="p-4">
+                {/* Фото объявления */}
+                {listing.images && (
+                  <div className="mb-3 -mx-4 -mt-4">
+                    <img 
+                      src={listing.images.split(',')[0]} 
+                      alt={listing.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                )}
+                
                 <h3 className="font-semibold mb-1 line-clamp-1">{listing.title}</h3>
                 <p className="text-xl font-bold text-primary mb-2">
                   {listing.price.toLocaleString()} ₽
