@@ -581,7 +581,7 @@ async def upload_image(file: UploadFile = File(...)):
     
     # Возвращаем URL
     # В продакшене это будет полный URL
-    base_url = os.getenv("BASE_URL", "https://alert-joy-production.up.railway.app")
+    base_url = os.getenv("BASE_URL", "https://ram-as-production.up.railway.app")
     image_url = f"{base_url}/uploads/{filename}"
     
     return {"url": image_url, "filename": filename}
@@ -593,7 +593,7 @@ async def upload_multiple_images(files: List[UploadFile] = File(...)):
     if len(files) > 5:
         raise HTTPException(status_code=400, detail="Maximum 5 files allowed")
     
-    base_url = os.getenv("BASE_URL", "https://alert-joy-production.up.railway.app")
+    base_url = os.getenv("BASE_URL", "https://ram-as-production.up.railway.app")
     urls = []
     
     for file in files:

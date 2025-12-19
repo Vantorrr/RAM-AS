@@ -286,6 +286,32 @@ async def get_pending_listings(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.get("/listings/all", response_model=List[schemas.Listing])
+async def get_all_listings(db: AsyncSession = Depends(get_db)):
+    """[Админ] Получить ВСЕ объявления"""
+    result = await db.execute(
+        select(models.Listing)
+        .order_by(models.Listing.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.delete("/listings/{listing_id}")
+async def delete_listing(listing_id: int, db: AsyncSession = Depends(get_db)):
+    """[Админ] Удалить объявление"""
+    result = await db.execute(
+        select(models.Listing).where(models.Listing.id == listing_id)
+    )
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    
+    await db.delete(listing)
+    await db.commit()
+    return {"status": "ok", "message": f"Listing {listing_id} deleted"}
+
+
 @router.get("/listings/my", response_model=List[schemas.Listing])
 async def get_my_listings(
     telegram_id: str,
