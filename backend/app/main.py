@@ -370,6 +370,25 @@ async def startup():
             print("✅ Added image_url column to categories")
         except Exception as e:
             print(f"⚠️ image_url column: {e}")
+        
+        # Миграции для СДЭК доставки в orders
+        cdek_columns = [
+            ("delivery_type", "VARCHAR"),
+            ("delivery_cost", "FLOAT DEFAULT 0"),
+            ("cdek_city_code", "INTEGER"),
+            ("cdek_city_name", "VARCHAR"),
+            ("cdek_pvz_code", "VARCHAR"),
+            ("cdek_pvz_address", "VARCHAR"),
+            ("cdek_tariff_code", "INTEGER"),
+            ("cdek_uuid", "VARCHAR"),
+            ("cdek_number", "VARCHAR"),
+        ]
+        for col_name, col_type in cdek_columns:
+            try:
+                await conn.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+            except Exception:
+                pass
+        print("✅ Added CDEK columns to orders")
     
     print("✅ Database ready!")
     
@@ -677,7 +696,15 @@ async def create_order(
         user_phone=order.user_phone,
         delivery_address=order.delivery_address,
         total_amount=order.total_amount,
-        status="pending"
+        status="pending",
+        # СДЭК доставка
+        delivery_type=order.delivery_type,
+        delivery_cost=order.delivery_cost or 0,
+        cdek_city_code=order.cdek_city_code,
+        cdek_city_name=order.cdek_city_name,
+        cdek_pvz_code=order.cdek_pvz_code,
+        cdek_pvz_address=order.cdek_pvz_address,
+        cdek_tariff_code=order.cdek_tariff_code,
     )
     db.add(db_order)
     await db.flush()

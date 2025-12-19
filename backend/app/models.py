@@ -88,6 +88,17 @@ class Order(Base):
     status = Column(String, default="pending")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # СДЭК доставка
+    delivery_type = Column(String, nullable=True)  # cdek_pvz, cdek_door, pickup
+    delivery_cost = Column(Float, default=0)
+    cdek_city_code = Column(Integer, nullable=True)
+    cdek_city_name = Column(String, nullable=True)
+    cdek_pvz_code = Column(String, nullable=True)
+    cdek_pvz_address = Column(String, nullable=True)
+    cdek_tariff_code = Column(Integer, nullable=True)
+    cdek_uuid = Column(String, nullable=True)  # UUID заказа в СДЭК
+    cdek_number = Column(String, nullable=True)  # Номер накладной СДЭК
+    
     items = relationship("OrderItem", back_populates="order")
 
 class OrderItem(Base):

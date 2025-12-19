@@ -85,6 +85,14 @@ class OrderCreate(BaseModel):
     delivery_address: Optional[str] = None
     total_amount: float
     items: List[OrderItemBase]
+    # СДЭК доставка
+    delivery_type: Optional[str] = None  # cdek_pvz, cdek_door, pickup
+    delivery_cost: Optional[float] = 0
+    cdek_city_code: Optional[int] = None
+    cdek_city_name: Optional[str] = None
+    cdek_pvz_code: Optional[str] = None
+    cdek_pvz_address: Optional[str] = None
+    cdek_tariff_code: Optional[int] = None
 
 class OrderItem(OrderItemBase):
     id: int
