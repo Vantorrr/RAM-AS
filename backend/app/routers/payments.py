@@ -491,68 +491,53 @@ async def paymaster_webhook(
                     cdek_info = ""
                     if order_data["cdek_tariff_code"] and order_data["cdek_city_code"]:
                         try:
-                            from .cdek import get_cdek_token, CDEK_API_URL, FROM_CITY_CODE
-                            import httpx
-                            
-                            token = await get_cdek_token()
-                            
-                            cdek_order_data = {
-                                "number": f"RAM-{order_data['id']}",
+                            # Вызываем свой же API для создания заказа СДЭК
+                            cdek_request = {
+                                "order_number": f"RAM-{order_data['id']}",
+                                "recipient_name": order_data["user_name"] or "Покупатель",
+                                "recipient_phone": order_data["user_phone"] or "",
+                                "to_city_code": order_data["cdek_city_code"],
                                 "tariff_code": order_data["cdek_tariff_code"],
-                                "sender": {"name": "RAM-US Auto Parts"},
-                                "recipient": {
-                                    "name": order_data["user_name"] or "Покупатель",
-                                    "phones": [{"number": order_data["user_phone"] or ""}]
-                                },
-                                "from_location": {"code": FROM_CITY_CODE},
-                                "packages": [{
-                                    "number": f"RAM-{order_data['id']}-1",
-                                    "weight": max(500, len(order_items) * 500),
-                                    "items": [{
-                                        "name": f"Товар #{item.product_id}",
-                                        "ware_key": str(item.product_id),
-                                        "payment": {"value": 0},
-                                        "cost": item.price_at_purchase,
-                                        "weight": 500,
-                                        "amount": item.quantity
-                                    } for item in order_items]
-                                }]
+                                "items": [{
+                                    "name": f"Товар #{item.product_id}",
+                                    "sku": str(item.product_id),
+                                    "payment_value": item.price_at_purchase,
+                                    "weight": 500,
+                                    "amount": item.quantity
+                                } for item in order_items]
                             }
                             
-                            # СДЭК требует ИЛИ delivery_point ИЛИ to_location.address
+                            # СДЭК требует ИЛИ delivery_point ИЛИ address
                             if order_data["cdek_pvz_code"]:
-                                # Доставка до ПВЗ
-                                cdek_order_data["delivery_point"] = order_data["cdek_pvz_code"]
+                                cdek_request["delivery_point"] = order_data["cdek_pvz_code"]
                             else:
-                                # Доставка курьером до адреса
-                                cdek_order_data["to_location"] = {
-                                    "code": order_data["cdek_city_code"],
-                                    "address": order_data["delivery_address"] or "Адрес уточняется"
-                                }
+                                cdek_request["address"] = order_data["delivery_address"] or "Адрес уточняется"
                             
-                            async with httpx.AsyncClient() as client:
+                            async with httpx.AsyncClient(timeout=30) as client:
                                 resp = await client.post(
-                                    f"{CDEK_API_URL}/orders",
-                                    headers={"Authorization": f"Bearer {token}"},
-                                    json=cdek_order_data
+                                    f"{BACKEND_URL}/cdek/orders",
+                                    json=cdek_request
                                 )
-                                cdek_result = resp.json()
                                 
-                                if "entity" in cdek_result:
-                                    # Обновляем заказ в БД
-                                    await db.execute(
-                                        models.Order.__table__.update()
-                                        .where(models.Order.id == order_data["id"])
-                                        .values(
-                                            cdek_uuid=cdek_result["entity"].get("uuid"),
-                                            cdek_number=cdek_result["entity"].get("cdek_number")
+                                if resp.status_code == 200:
+                                    cdek_result = resp.json()
+                                    cdek_uuid = cdek_result.get("uuid")
+                                    cdek_number = cdek_result.get("cdek_number")
+                                    
+                                    # Обновляем заказ в БД через новую сессию
+                                    from ..database import SessionLocal
+                                    async with SessionLocal() as new_db:
+                                        await new_db.execute(
+                                            models.Order.__table__.update()
+                                            .where(models.Order.id == order_data["id"])
+                                            .values(cdek_uuid=cdek_uuid, cdek_number=cdek_number)
                                         )
-                                    )
-                                    await db.commit()
-                                    cdek_info = f"\n📦 Накладная СДЭК: {cdek_result['entity'].get('cdek_number') or 'создаётся...'}"
-                                    print(f"✅ CDEK order created: {cdek_result['entity'].get('uuid')}")
+                                        await new_db.commit()
+                                    
+                                    cdek_info = f"\n📦 Накладная СДЭК: {cdek_number or 'создаётся...'}"
+                                    print(f"✅ CDEK order created: {cdek_uuid}")
                                 else:
-                                    print(f"❌ CDEK error: {cdek_result}")
+                                    print(f"❌ CDEK API error: {resp.status_code} - {resp.text}")
                         except Exception as e:
                             print(f"❌ Failed to create CDEK order: {e}")
                     
