@@ -200,9 +200,6 @@ async def create_cdek_order(request: CreateOrderRequest):
         "from_location": {
             "code": FROM_CITY_CODE
         },
-        "to_location": {
-            "code": request.to_city_code
-        },
         "packages": [{
             "number": f"{request.order_number}-1",
             "weight": sum(item.get("weight", 500) * item.get("amount", 1) for item in request.items),
@@ -217,11 +214,14 @@ async def create_cdek_order(request: CreateOrderRequest):
         }]
     }
     
-    # Добавляем точку доставки
+    # СДЭК требует ЛИБО delivery_point ЛИБО to_location, НЕ ОБА!
     if request.delivery_point:
         order_data["delivery_point"] = request.delivery_point
-    elif request.address:
-        order_data["to_location"]["address"] = request.address
+    else:
+        order_data["to_location"] = {
+            "code": request.to_city_code,
+            "address": request.address or "Адрес уточняется"
+        }
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
