@@ -423,24 +423,31 @@ async def paymaster_webhook(
                 listing = result.scalar_one_or_none()
                 
                 if listing:
+                    # Сохраняем данные ДО commit
+                    listing_data = {
+                        "id": listing.id,
+                        "title": listing.title,
+                        "seller_telegram_id": listing.seller_telegram_id
+                    }
+                    
                     listing.is_paid = True
                     await db.commit()
+                    print(f"✅ Listing {listing_id} marked as paid")
                     
-                    # Уведомляем пользователя
+                    # Уведомляем пользователя (используем сохранённые данные)
                     try:
                         await bot.send_message(
-                            chat_id=listing.seller_telegram_id,
+                            chat_id=listing_data["seller_telegram_id"],
                             text=f"✅ <b>Оплата подтверждена!</b>\n\n"
-                                 f"📋 Объявление: {listing.title}\n"
+                                 f"📋 Объявление: {listing_data['title']}\n"
                                  f"💰 Сумма: 200 ₽\n\n"
                                  f"⏳ Объявление отправлено на модерацию.\n"
                                  f"После проверки оно появится в ленте барахолки!",
                             parse_mode="HTML"
                         )
+                        print(f"✅ User {listing_data['seller_telegram_id']} notified")
                     except Exception as e:
                         print(f"❌ Failed to notify user: {e}")
-                    
-                    print(f"✅ Listing {listing_id} marked as paid")
                     return {"status": "ok", "message": "Listing payment confirmed"}
                 else:
                     print(f"❌ Listing {listing_id} not found")
