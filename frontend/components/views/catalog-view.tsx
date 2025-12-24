@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { API_URL } from "@/lib/config"
 import { useGarageStore } from "@/lib/garage-store"
+import { GarageSelector } from "@/components/garage-selector"
 
 interface Category {
     id: number
@@ -87,6 +88,17 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
             .catch(err => console.error(err))
             .finally(() => setLoadingCats(false))
     }, [])
+    
+    // Reload products when vehicle changes
+    useEffect(() => {
+        if (selectedCategory) {
+            setCurrentPage(0)
+            fetchProducts(selectedCategory.id, undefined, 0, false)
+        } else if (isSearchMode) {
+            setCurrentPage(0)
+            fetchProducts(undefined, searchQuery, 0, false)
+        }
+    }, [selectedVehicle])
 
     // Fetch products function
     const fetchProducts = useCallback(async (categoryId?: number, search?: string, page = 0, append = false) => {
@@ -381,7 +393,7 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         <div className="flex flex-col pb-24 min-h-screen">
             <div className="sticky top-0 z-10 bg-background border-b border-white/5 px-4 py-4">
                 <h2 className="text-xl font-bold mb-3">Каталог</h2>
-                <form onSubmit={handleSearch} className="relative">
+                <form onSubmit={handleSearch} className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         type="search"
@@ -393,7 +405,10 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
                 </form>
             </div>
             
-            <div className="px-4 pt-4 space-y-2">
+            {/* Garage Selector */}
+            <GarageSelector />
+            
+            <div className="px-4 pt-2 space-y-2">
                 {loadingCats ? (
                     Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 bg-white/5 rounded-xl" />)
                 ) : (
