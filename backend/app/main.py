@@ -668,73 +668,39 @@ async def read_products(
     sort_by: Optional[str] = None,  # price_asc, price_desc, name_asc, name_desc
     db: AsyncSession = Depends(database.get_db)
 ):
-    try:
-        query = select(models.Product).options(selectinload(models.Product.seller))
+    from sqlalchemy import text as sql_text, func
+    
+    query = select(models.Product).options(selectinload(models.Product.seller))
+    
+    # ПРОВЕРЯЕМ: есть ли вообще связи в product_vehicles?
+    links_check = await db.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
+    links_count = links_check.scalar()
+    
+    # Фильтр по авто (ТОЛЬКО если AI уже отработал и создал связи!)
+    if (vehicle_make or vehicle_model) and links_count > 0:
+        query = query.join(models.Product.vehicles)
         
-        # Фильтр по авто (только если AI уже связал товары с машинами)
-        if vehicle_make or vehicle_model:
-            query = query.join(models.Product.vehicles)
-            
-            if vehicle_make:
-                query = query.where(models.Vehicle.make == vehicle_make)
-            if vehicle_model:
-                query = query.where(models.Vehicle.model == vehicle_model)
-            if vehicle_engine:
-                query = query.where(models.Vehicle.engine == vehicle_engine)
-            if vehicle_year:
-                # Год должен попадать в диапазон выпуска авто
-                query = query.where(
-                    (models.Vehicle.year_from <= vehicle_year) & 
-                    ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
-                )
-            
-            # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
-            query = query.distinct()
-        
-        # Категории (пока временно показываем из склада)
-        if category_id and category_id != 50:
-            query = query.where(models.Product.category_id == 50)
-        
-        if search:
-            search_filter = f"%{search}%"
+        if vehicle_make:
+            query = query.where(models.Vehicle.make == vehicle_make)
+        if vehicle_model:
+            query = query.where(models.Vehicle.model == vehicle_model)
+        if vehicle_engine:
+            query = query.where(models.Vehicle.engine == vehicle_engine)
+        if vehicle_year:
+            # Год должен попадать в диапазон выпуска авто
             query = query.where(
-                (models.Product.name.ilike(search_filter)) |
-                (models.Product.part_number.ilike(search_filter)) |
-                (models.Product.manufacturer.ilike(search_filter))
+                (models.Vehicle.year_from <= vehicle_year) & 
+                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
             )
         
-        if min_price is not None:
-            query = query.where(models.Product.price_rub >= min_price)
-        
-        if max_price is not None:
-            query = query.where(models.Product.price_rub <= max_price)
-        
-        if in_stock is not None:
-            query = query.where(models.Product.is_in_stock == in_stock)
-        
-        # Сортировка
-        if sort_by == "price_asc":
-            query = query.order_by(models.Product.price_rub.asc())
-        elif sort_by == "price_desc":
-            query = query.order_by(models.Product.price_rub.desc())
-        elif sort_by == "name_asc":
-            query = query.order_by(models.Product.name.asc())
-        elif sort_by == "name_desc":
-            query = query.order_by(models.Product.name.desc())
-            
-        query = query.offset(skip).limit(limit)
-        result = await db.execute(query)
-        return result.scalars().all()
+        # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
+        query = query.distinct()
+    elif (vehicle_make or vehicle_model) and links_count == 0:
+        print(f"⚠️ AI еще не отработал (0 связей), показываем ВСЕ товары")
     
-    except Exception as e:
-        # Если ошибка с фильтром по машинам (AI еще не отработал), показываем ВСЕ товары
-        print(f"⚠️ Фильтр по машинам недоступен (AI еще работает): {e}")
-        
-        query = select(models.Product).options(selectinload(models.Product.seller))
-        
-        # Применяем остальные фильтры БЕЗ vehicle
-        if category_id and category_id != 50:
-            query = query.where(models.Product.category_id == 50)
+    # Категории (пока временно показываем из склада)
+    if category_id and category_id != 50:
+        query = query.where(models.Product.category_id == 50)
         
         if search:
             search_filter = f"%{search}%"
@@ -796,58 +762,33 @@ async def get_products_count(
     vehicle_engine: Optional[str] = None,
     db: AsyncSession = Depends(database.get_db)
 ):
-    from sqlalchemy import func
+    from sqlalchemy import func, text as sql_text
     
-    try:
-        query = select(func.count(models.Product.id))
+    query = select(func.count(models.Product.id))
+    
+    # ПРОВЕРЯЕМ: есть ли связи в product_vehicles?
+    links_check = await db.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
+    links_count = links_check.scalar()
+    
+    # Фильтр по авто (ТОЛЬКО если AI отработал!)
+    if (vehicle_make or vehicle_model) and links_count > 0:
+        query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
         
-        # Фильтр по авто (нужен join для count тоже, если фильтруем)
-        if vehicle_make or vehicle_model:
-            query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
-            
-            if vehicle_make:
-                query = query.where(models.Vehicle.make == vehicle_make)
-            if vehicle_model:
-                query = query.where(models.Vehicle.model == vehicle_model)
-            if vehicle_engine:
-                query = query.where(models.Vehicle.engine == vehicle_engine)
-            if vehicle_year:
-                query = query.where(
-                    (models.Vehicle.year_from <= vehicle_year) & 
-                    ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
-                )
-        
-        # ВРЕМЕННО: все категории показывают товары из склада (50)
-        if category_id and category_id != 50:
-            query = query.where(models.Product.category_id == 50)
-        
-        if search:
-            search_filter = f"%{search}%"
+        if vehicle_make:
+            query = query.where(models.Vehicle.make == vehicle_make)
+        if vehicle_model:
+            query = query.where(models.Vehicle.model == vehicle_model)
+        if vehicle_engine:
+            query = query.where(models.Vehicle.engine == vehicle_engine)
+        if vehicle_year:
             query = query.where(
-                (models.Product.name.ilike(search_filter)) |
-                (models.Product.part_number.ilike(search_filter)) |
-                (models.Product.manufacturer.ilike(search_filter))
+                (models.Vehicle.year_from <= vehicle_year) & 
+                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
             )
-        
-        if min_price is not None:
-            query = query.where(models.Product.price_rub >= min_price)
-        
-        if max_price is not None:
-            query = query.where(models.Product.price_rub <= max_price)
-        
-        if in_stock is not None:
-            query = query.where(models.Product.is_in_stock == in_stock)
-        
-        result = await db.execute(query)
-        return {"count": result.scalar()}
-    except Exception as e:
-        # Если ошибка с фильтром по машинам (например, нет связей), возвращаем счёт без фильтра
-        print(f"⚠️ Error in products count with vehicle filter: {e}")
-        query = select(func.count(models.Product.id))
-        
-        # ВРЕМЕННО: все категории показывают товары из склада (50)
-        if category_id and category_id != 50:
-            query = query.where(models.Product.category_id == 50)
+    
+    # ВРЕМЕННО: все категории показывают товары из склада (50)
+    if category_id and category_id != 50:
+        query = query.where(models.Product.category_id == 50)
         
         if search:
             search_filter = f"%{search}%"
