@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Car, ChevronDown, Check, X, RotateCcw } from "lucide-react"
+import { Car, ChevronDown, Check, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Drawer,
@@ -32,7 +31,6 @@ export function GarageSelector() {
   const [isOpen, setIsOpen] = useState(false)
   const [config, setConfig] = useState<VehicleConfig[]>([])
   const [loading, setLoading] = useState(false)
-  const [manualMode, setManualMode] = useState(false)
   
   const { selectedVehicle, setVehicle, clearVehicle } = useGarageStore()
   
@@ -82,16 +80,7 @@ export function GarageSelector() {
     setModel("")
     setYear("")
     setEngine("")
-    setManualMode(false)
     setIsOpen(false)
-  }
-  
-  const toggleMode = () => {
-    setManualMode(!manualMode)
-    setMake("")
-    setModel("")
-    setYear("")
-    setEngine("")
   }
 
   // Derived options
@@ -144,71 +133,13 @@ export function GarageSelector() {
           </DrawerHeader>
           
           <div className="p-4 space-y-4">
-            {/* Toggle button */}
-            <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={toggleMode}
-                className="w-full"
-            >
-                {manualMode ? "📋 Выбрать из списка" : "✍️ Ввести свою машину"}
-            </Button>
-            
-            {manualMode ? (
-                /* Manual input mode */
-                <>
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground ml-1">Марка *</label>
-                        <Input
-                            placeholder="Lada, Toyota, BMW..."
-                            value={make}
-                            onChange={e => setMake(e.target.value)}
-                            className="bg-white/5 border-white/10"
-                        />
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground ml-1">Модель *</label>
-                        <Input
-                            placeholder="Granta, Camry, X5..."
-                            value={model}
-                            onChange={e => setModel(e.target.value)}
-                            className="bg-white/5 border-white/10"
-                        />
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground ml-1">Год выпуска *</label>
-                        <Input
-                            type="number"
-                            placeholder="2020"
-                            value={year}
-                            onChange={e => setYear(e.target.value)}
-                            className="bg-white/5 border-white/10"
-                        />
-                    </div>
-                    
-                    <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground ml-1">Двигатель *</label>
-                        <Input
-                            placeholder="1.6L 16V, 2.0L Turbo..."
-                            value={engine}
-                            onChange={e => setEngine(e.target.value)}
-                            className="bg-white/5 border-white/10"
-                        />
-                    </div>
-                </>
-            ) : loading ? (
+            {loading ? (
                 <div className="text-center py-8 text-muted-foreground">Загрузка базы авто...</div>
             ) : config.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                     <p className="mb-2">База авто пуста</p>
-                    <Button size="sm" variant="outline" onClick={toggleMode}>
-                        Ввести вручную
-                    </Button>
                 </div>
             ) : (
-                /* Select mode */
                 <>
                     {/* Make */}
                     <div className="space-y-1">
@@ -275,10 +206,7 @@ export function GarageSelector() {
             {/* Info */}
             <Card className="bg-blue-500/10 border-blue-500/20">
                 <CardContent className="p-3 text-xs text-blue-300">
-                    {manualMode 
-                        ? "Введите данные вашего автомобиля, и мы подберём подходящие запчасти."
-                        : `Мы отфильтруем каталог и покажем только те детали, которые точно подходят к вашему ${make ? `${make} ${model}` : 'автомобилю'}.`
-                    }
+                    Мы отфильтруем каталог и покажем только те детали, которые точно подходят к вашему {make ? `${make} ${model}` : 'автомобилю'}.
                 </CardContent>
             </Card>
           </div>
