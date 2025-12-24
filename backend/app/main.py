@@ -689,10 +689,15 @@ async def read_products(
         # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
         query = query.distinct()
     
-    if category_id:
-        # Получаем все подкатегории рекурсивно
-        all_category_ids = await get_all_subcategory_ids(db, category_id)
-        query = query.where(models.Product.category_id.in_(all_category_ids))
+    # ВРЕМЕННО: все категории показывают товары из склада (50)
+    # if category_id:
+    #     # Получаем все подкатегории рекурсивно
+    #     all_category_ids = await get_all_subcategory_ids(db, category_id)
+    #     query = query.where(models.Product.category_id.in_(all_category_ids))
+    
+    # Пока товары не распределены - показываем из склада
+    if category_id and category_id != 50:
+        query = query.where(models.Product.category_id == 50)
     
     if search:
         search_filter = f"%{search}%"
@@ -775,10 +780,9 @@ async def get_products_count(
                     ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
                 )
         
-        if category_id:
-            # Получаем все подкатегории рекурсивно
-            all_category_ids = await get_all_subcategory_ids(db, category_id)
-            query = query.where(models.Product.category_id.in_(all_category_ids))
+        # ВРЕМЕННО: все категории показывают товары из склада (50)
+        if category_id and category_id != 50:
+            query = query.where(models.Product.category_id == 50)
         
         if search:
             search_filter = f"%{search}%"
@@ -804,9 +808,9 @@ async def get_products_count(
         print(f"⚠️ Error in products count with vehicle filter: {e}")
         query = select(func.count(models.Product.id))
         
-        if category_id:
-            all_category_ids = await get_all_subcategory_ids(db, category_id)
-            query = query.where(models.Product.category_id.in_(all_category_ids))
+        # ВРЕМЕННО: все категории показывают товары из склада (50)
+        if category_id and category_id != 50:
+            query = query.where(models.Product.category_id == 50)
         
         if search:
             search_filter = f"%{search}%"
