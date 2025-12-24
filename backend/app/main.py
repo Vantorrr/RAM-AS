@@ -585,8 +585,8 @@ async def startup():
     
     print("✅ Database ready!")
     
-    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ
-    print("🤖 Запуск AI-привязки товаров к машинам...")
+    # 🤖 БЫСТРАЯ ПРИВЯЗКА + AI-УТОЧНЕНИЕ
+    print("🚀 Быстрая привязка товаров к машинам...")
     from sqlalchemy import text as sql_text
     async with engine.begin() as conn:
         # Проверяем, есть ли уже связи
@@ -594,10 +594,21 @@ async def startup():
         links_count = existing_links.scalar()
         
         if links_count == 0:
-            # Запускаем AI-привязку в фоне
-            asyncio.create_task(ai_link_products_to_vehicles())
+            # БЫСТРО: привязываем ВСЕ ко ВСЕМ (займёт пару секунд)
+            print("⚡ Массовая привязка ВСЕХ товаров ко ВСЕМ машинам...")
+            await conn.execute(sql_text("""
+                INSERT INTO product_vehicles (product_id, vehicle_id)
+                SELECT p.id, v.id
+                FROM products p
+                CROSS JOIN vehicles v
+                ON CONFLICT DO NOTHING
+            """))
+            print("✅ Базовая привязка завершена! Все товары доступны для всех машин!")
+            
+            # TODO: В фоне AI может уточнить привязки (пока отключено для скорости)
+            # asyncio.create_task(ai_refine_product_vehicles())
         else:
-            print(f"ℹ️  Связи уже существуют ({links_count}), пропуск AI-привязки")
+            print(f"ℹ️  Связи уже существуют ({links_count}), пропуск привязки")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
