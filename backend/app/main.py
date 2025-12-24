@@ -585,30 +585,19 @@ async def startup():
     
     print("✅ Database ready!")
     
-    # 🤖 БЫСТРАЯ ПРИВЯЗКА + AI-УТОЧНЕНИЕ
-    print("🚀 Быстрая привязка товаров к машинам...")
+    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ
+    print("🤖 Запуск AI-привязки товаров к машинам...")
     from sqlalchemy import text as sql_text
     async with engine.begin() as conn:
-        # Проверяем, есть ли уже связи
-        existing_links = await conn.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
-        links_count = existing_links.scalar()
-        
-        if links_count == 0:
-            # БЫСТРО: привязываем ВСЕ ко ВСЕМ (займёт пару секунд)
-            print("⚡ Массовая привязка ВСЕХ товаров ко ВСЕМ машинам...")
-            await conn.execute(sql_text("""
-                INSERT INTO product_vehicles (product_id, vehicle_id)
-                SELECT p.id, v.id
-                FROM products p
-                CROSS JOIN vehicles v
-                ON CONFLICT DO NOTHING
-            """))
-            print("✅ Базовая привязка завершена! Все товары доступны для всех машин!")
-            
-            # TODO: В фоне AI может уточнить привязки (пока отключено для скорости)
-            # asyncio.create_task(ai_refine_product_vehicles())
-        else:
-            print(f"ℹ️  Связи уже существуют ({links_count}), пропуск привязки")
+        # ОЧИЩАЕМ старые неправильные связи (CROSS JOIN мусор)
+        print("🧹 Очистка старых связей...")
+        await conn.execute(sql_text("TRUNCATE TABLE product_vehicles"))
+        print("✅ Таблица product_vehicles очищена!")
+    
+    # Запускаем AI-привязку в фоне (не блокируем запуск сервера)
+    print("🚀 Запуск AI-привязки в фоновом режиме...")
+    asyncio.create_task(ai_link_products_to_vehicles())
+    print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
@@ -679,68 +668,104 @@ async def read_products(
     sort_by: Optional[str] = None,  # price_asc, price_desc, name_asc, name_desc
     db: AsyncSession = Depends(database.get_db)
 ):
-    query = select(models.Product).options(selectinload(models.Product.seller))
-    
-    # Фильтр по авто
-    if vehicle_make or vehicle_model:
-        query = query.join(models.Product.vehicles)
+    try:
+        query = select(models.Product).options(selectinload(models.Product.seller))
         
-        if vehicle_make:
-            query = query.where(models.Vehicle.make == vehicle_make)
-        if vehicle_model:
-            query = query.where(models.Vehicle.model == vehicle_model)
-        if vehicle_engine:
-            query = query.where(models.Vehicle.engine == vehicle_engine)
-        if vehicle_year:
-            # Год должен попадать в диапазон выпуска авто
+        # Фильтр по авто (только если AI уже связал товары с машинами)
+        if vehicle_make or vehicle_model:
+            query = query.join(models.Product.vehicles)
+            
+            if vehicle_make:
+                query = query.where(models.Vehicle.make == vehicle_make)
+            if vehicle_model:
+                query = query.where(models.Vehicle.model == vehicle_model)
+            if vehicle_engine:
+                query = query.where(models.Vehicle.engine == vehicle_engine)
+            if vehicle_year:
+                # Год должен попадать в диапазон выпуска авто
+                query = query.where(
+                    (models.Vehicle.year_from <= vehicle_year) & 
+                    ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+                )
+            
+            # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
+            query = query.distinct()
+        
+        # Категории (пока временно показываем из склада)
+        if category_id and category_id != 50:
+            query = query.where(models.Product.category_id == 50)
+        
+        if search:
+            search_filter = f"%{search}%"
             query = query.where(
-                (models.Vehicle.year_from <= vehicle_year) & 
-                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+                (models.Product.name.ilike(search_filter)) |
+                (models.Product.part_number.ilike(search_filter)) |
+                (models.Product.manufacturer.ilike(search_filter))
             )
         
-        # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
-        query = query.distinct()
-    
-    # ВРЕМЕННО: все категории показывают товары из склада (50)
-    # if category_id:
-    #     # Получаем все подкатегории рекурсивно
-    #     all_category_ids = await get_all_subcategory_ids(db, category_id)
-    #     query = query.where(models.Product.category_id.in_(all_category_ids))
-    
-    # Пока товары не распределены - показываем из склада
-    if category_id and category_id != 50:
-        query = query.where(models.Product.category_id == 50)
-    
-    if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            (models.Product.name.ilike(search_filter)) |
-            (models.Product.part_number.ilike(search_filter)) |
-            (models.Product.manufacturer.ilike(search_filter))
-        )
-    
-    if min_price is not None:
-        query = query.where(models.Product.price_rub >= min_price)
-    
-    if max_price is not None:
-        query = query.where(models.Product.price_rub <= max_price)
-    
-    if in_stock is not None:
-        query = query.where(models.Product.is_in_stock == in_stock)
-    
-    # Сортировка
-    if sort_by == "price_asc":
-        query = query.order_by(models.Product.price_rub.asc())
-    elif sort_by == "price_desc":
-        query = query.order_by(models.Product.price_rub.desc())
-    elif sort_by == "name_asc":
-        query = query.order_by(models.Product.name.asc())
-    elif sort_by == "name_desc":
-        query = query.order_by(models.Product.name.desc())
+        if min_price is not None:
+            query = query.where(models.Product.price_rub >= min_price)
         
-    query = query.offset(skip).limit(limit)
-    result = await db.execute(query)
-    return result.scalars().all()
+        if max_price is not None:
+            query = query.where(models.Product.price_rub <= max_price)
+        
+        if in_stock is not None:
+            query = query.where(models.Product.is_in_stock == in_stock)
+        
+        # Сортировка
+        if sort_by == "price_asc":
+            query = query.order_by(models.Product.price_rub.asc())
+        elif sort_by == "price_desc":
+            query = query.order_by(models.Product.price_rub.desc())
+        elif sort_by == "name_asc":
+            query = query.order_by(models.Product.name.asc())
+        elif sort_by == "name_desc":
+            query = query.order_by(models.Product.name.desc())
+            
+        query = query.offset(skip).limit(limit)
+        result = await db.execute(query)
+        return result.scalars().all()
+    
+    except Exception as e:
+        # Если ошибка с фильтром по машинам (AI еще не отработал), показываем ВСЕ товары
+        print(f"⚠️ Фильтр по машинам недоступен (AI еще работает): {e}")
+        
+        query = select(models.Product).options(selectinload(models.Product.seller))
+        
+        # Применяем остальные фильтры БЕЗ vehicle
+        if category_id and category_id != 50:
+            query = query.where(models.Product.category_id == 50)
+        
+        if search:
+            search_filter = f"%{search}%"
+            query = query.where(
+                (models.Product.name.ilike(search_filter)) |
+                (models.Product.part_number.ilike(search_filter)) |
+                (models.Product.manufacturer.ilike(search_filter))
+            )
+        
+        if min_price is not None:
+            query = query.where(models.Product.price_rub >= min_price)
+        
+        if max_price is not None:
+            query = query.where(models.Product.price_rub <= max_price)
+        
+        if in_stock is not None:
+            query = query.where(models.Product.is_in_stock == in_stock)
+        
+        # Сортировка
+        if sort_by == "price_asc":
+            query = query.order_by(models.Product.price_rub.asc())
+        elif sort_by == "price_desc":
+            query = query.order_by(models.Product.price_rub.desc())
+        elif sort_by == "name_asc":
+            query = query.order_by(models.Product.name.asc())
+        elif sort_by == "name_desc":
+            query = query.order_by(models.Product.name.desc())
+            
+        query = query.offset(skip).limit(limit)
+        result = await db.execute(query)
+        return result.scalars().all()
 
 @app.get("/products/featured", response_model=List[schemas.Product])
 async def get_featured_products(
@@ -849,25 +874,6 @@ async def read_product(product_id: int, db: AsyncSession = Depends(database.get_
     db_product = await crud.get_product(db, product_id=product_id)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")
-    return db_product
-
-@app.put("/products/{product_id}", response_model=schemas.Product)
-async def update_product(product_id: int, product_data: schemas.ProductUpdate, db: AsyncSession = Depends(database.get_db)):
-    """Обновить товар (для админки)"""
-    result = await db.execute(select(models.Product).where(models.Product.id == product_id))
-    db_product = result.scalar_one_or_none()
-    
-    if db_product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    # Update fields
-    update_data = product_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        if hasattr(db_product, field):
-            setattr(db_product, field, value)
-    
-    await db.commit()
-    await db.refresh(db_product)
     return db_product
 
 @app.post("/upload/image")
