@@ -585,19 +585,20 @@ async def startup():
     
     print("✅ Database ready!")
     
-    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ
-    print("🤖 Запуск AI-привязки товаров к машинам...")
+    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ (запускается ТОЛЬКО ОДИН РАЗ!)
     from sqlalchemy import text as sql_text
     async with engine.begin() as conn:
-        # ОЧИЩАЕМ старые неправильные связи (CROSS JOIN мусор)
-        print("🧹 Очистка старых связей...")
-        await conn.execute(sql_text("TRUNCATE TABLE product_vehicles"))
-        print("✅ Таблица product_vehicles очищена!")
-    
-    # Запускаем AI-привязку в фоне (не блокируем запуск сервера)
-    print("🚀 Запуск AI-привязки в фоновом режиме...")
-    asyncio.create_task(ai_link_products_to_vehicles())
-    print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
+        # Проверяем, есть ли уже связи
+        existing_links = await conn.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
+        links_count = existing_links.scalar()
+        
+        if links_count == 0:
+            print("🤖 Связей не найдено! Запуск AI-привязки...")
+            # Запускаем AI-привязку в фоне (не блокируем запуск сервера)
+            asyncio.create_task(ai_link_products_to_vehicles())
+            print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
+        else:
+            print(f"✅ Связи уже существуют ({links_count} шт), AI-привязка не требуется!")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
@@ -701,37 +702,37 @@ async def read_products(
     # Категории (пока временно показываем из склада)
     if category_id and category_id != 50:
         query = query.where(models.Product.category_id == 50)
+    
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            (models.Product.name.ilike(search_filter)) |
+            (models.Product.part_number.ilike(search_filter)) |
+            (models.Product.manufacturer.ilike(search_filter))
+        )
+    
+    if min_price is not None:
+        query = query.where(models.Product.price_rub >= min_price)
+    
+    if max_price is not None:
+        query = query.where(models.Product.price_rub <= max_price)
+    
+    if in_stock is not None:
+        query = query.where(models.Product.is_in_stock == in_stock)
+    
+    # Сортировка
+    if sort_by == "price_asc":
+        query = query.order_by(models.Product.price_rub.asc())
+    elif sort_by == "price_desc":
+        query = query.order_by(models.Product.price_rub.desc())
+    elif sort_by == "name_asc":
+        query = query.order_by(models.Product.name.asc())
+    elif sort_by == "name_desc":
+        query = query.order_by(models.Product.name.desc())
         
-        if search:
-            search_filter = f"%{search}%"
-            query = query.where(
-                (models.Product.name.ilike(search_filter)) |
-                (models.Product.part_number.ilike(search_filter)) |
-                (models.Product.manufacturer.ilike(search_filter))
-            )
-        
-        if min_price is not None:
-            query = query.where(models.Product.price_rub >= min_price)
-        
-        if max_price is not None:
-            query = query.where(models.Product.price_rub <= max_price)
-        
-        if in_stock is not None:
-            query = query.where(models.Product.is_in_stock == in_stock)
-        
-        # Сортировка
-        if sort_by == "price_asc":
-            query = query.order_by(models.Product.price_rub.asc())
-        elif sort_by == "price_desc":
-            query = query.order_by(models.Product.price_rub.desc())
-        elif sort_by == "name_asc":
-            query = query.order_by(models.Product.name.asc())
-        elif sort_by == "name_desc":
-            query = query.order_by(models.Product.name.desc())
-            
-        query = query.offset(skip).limit(limit)
-        result = await db.execute(query)
-        return result.scalars().all()
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    return result.scalars().all()
 
 @app.get("/products/featured", response_model=List[schemas.Product])
 async def get_featured_products(
@@ -789,26 +790,26 @@ async def get_products_count(
     # ВРЕМЕННО: все категории показывают товары из склада (50)
     if category_id and category_id != 50:
         query = query.where(models.Product.category_id == 50)
-        
-        if search:
-            search_filter = f"%{search}%"
-            query = query.where(
-                (models.Product.name.ilike(search_filter)) |
-                (models.Product.part_number.ilike(search_filter)) |
-                (models.Product.manufacturer.ilike(search_filter))
-            )
-        
-        if min_price is not None:
-            query = query.where(models.Product.price_rub >= min_price)
-        
-        if max_price is not None:
-            query = query.where(models.Product.price_rub <= max_price)
-        
-        if in_stock is not None:
-            query = query.where(models.Product.is_in_stock == in_stock)
-        
-        result = await db.execute(query)
-        return {"count": result.scalar()}
+    
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            (models.Product.name.ilike(search_filter)) |
+            (models.Product.part_number.ilike(search_filter)) |
+            (models.Product.manufacturer.ilike(search_filter))
+        )
+    
+    if min_price is not None:
+        query = query.where(models.Product.price_rub >= min_price)
+    
+    if max_price is not None:
+        query = query.where(models.Product.price_rub <= max_price)
+    
+    if in_stock is not None:
+        query = query.where(models.Product.is_in_stock == in_stock)
+    
+    result = await db.execute(query)
+    return {"count": result.scalar()}
 
 @app.get("/products/{product_id}", response_model=schemas.Product)
 async def read_product(product_id: int, db: AsyncSession = Depends(database.get_db)):
