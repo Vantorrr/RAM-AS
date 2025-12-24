@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ChevronRight, Wrench, Settings, Fuel, Disc, Zap, Sparkles, Warehouse, Package, Truck, Thermometer, Wind } from "lucide-react"
 import Image from "next/image"
+import { GarageSelector } from "@/components/garage-selector"
 import { API_URL } from "@/lib/config"
 
 interface Product {
@@ -158,6 +159,9 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
           </div>
         </div>
       </div>
+
+      {/* Garage Selector */}
+      <GarageSelector />
 
       {/* Quick Actions */}
       <div className="px-4 -mt-2">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { API_URL } from "@/lib/config"
+import { useGarageStore } from "@/lib/garage-store"
 
 interface Category {
     id: number
@@ -53,6 +54,8 @@ interface CatalogViewProps {
 }
 
 export function CatalogView({ onProductClick }: CatalogViewProps) {
+    const { selectedVehicle } = useGarageStore()
+
     // Categories
     const [categories, setCategories] = useState<Category[]>([])
     const [loadingCats, setLoadingCats] = useState(true)
@@ -100,6 +103,22 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         if (minPrice) params.set("min_price", minPrice)
         if (maxPrice) params.set("max_price", maxPrice)
         
+        // Фильтр по авто
+        if (selectedVehicle) {
+            params.set("vehicle_make", selectedVehicle.make)
+            params.set("vehicle_model", selectedVehicle.model)
+            params.set("vehicle_year", String(selectedVehicle.year))
+            params.set("vehicle_engine", selectedVehicle.engine)
+        }
+        
+        // Garage filter
+        if (selectedVehicle) {
+            params.set("vehicle_make", selectedVehicle.make)
+            params.set("vehicle_model", selectedVehicle.model)
+            params.set("vehicle_year", String(selectedVehicle.year))
+            params.set("vehicle_engine", selectedVehicle.engine)
+        }
+        
         try {
             // Fetch products
             const res = await fetch(`${API_URL}/products/?${params.toString()}`)
@@ -119,6 +138,21 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
             if (minPrice) countParams.set("min_price", minPrice)
             if (maxPrice) countParams.set("max_price", maxPrice)
             
+            // Фильтр по авто
+            if (selectedVehicle) {
+                countParams.set("vehicle_make", selectedVehicle.make)
+                countParams.set("vehicle_model", selectedVehicle.model)
+                countParams.set("vehicle_year", String(selectedVehicle.year))
+                countParams.set("vehicle_engine", selectedVehicle.engine)
+            }
+            
+            if (selectedVehicle) {
+                countParams.set("vehicle_make", selectedVehicle.make)
+                countParams.set("vehicle_model", selectedVehicle.model)
+                countParams.set("vehicle_year", String(selectedVehicle.year))
+                countParams.set("vehicle_engine", selectedVehicle.engine)
+            }
+            
             const countRes = await fetch(`${API_URL}/products/count?${countParams.toString()}`)
             const countData = await countRes.json()
             setTotalCount(countData.count)
@@ -128,7 +162,7 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         } finally {
             setLoadingProducts(false)
         }
-    }, [sortBy, inStockOnly, minPrice, maxPrice])
+    }, [sortBy, inStockOnly, minPrice, maxPrice, selectedVehicle])
 
     // Handle category click
     const handleCategoryClick = (cat: Category) => {

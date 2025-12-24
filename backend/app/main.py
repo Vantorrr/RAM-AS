@@ -12,7 +12,7 @@ from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine, sync_engine
 from .bot import notify_new_order
-from .routers import marketplace, ai, favorites, payments, cdek
+from .routers import marketplace, ai, favorites, payments, cdek, vehicles
 from .routers import admin as admin_router
 
 # Create uploads directory
@@ -79,6 +79,7 @@ class ProductAdmin(ModelView, model=models.Product):
         models.Product.is_preorder,
         models.Product.is_installment_available,
         models.Product.category_id,
+        models.Product.vehicles,  # Добавлено поле для выбора машин
     ]
     
     # Поиск
@@ -110,6 +111,17 @@ class ProductAdmin(ModelView, model=models.Product):
         "is_preorder": {"label": "Под заказ"},
         "is_installment_available": {"label": "Рассрочка 0%"},
         "category_id": {"label": "Категория (ID)"},
+        "vehicles": {"label": "Совместимость с авто"},
+    }
+    
+    # Настройка ajax для vehicles, если записей много
+    form_ajax_refs = {
+        "vehicles": {
+            "fields": ["make", "model", "generation", "engine"],
+            "placeholder": "Выберите автомобиль",
+            "page_size": 10,
+            "minimum_input_length": 0,
+        }
     }
 
 class CategoryAdmin(ModelView, model=models.Category):
@@ -178,6 +190,41 @@ class OrderAdmin(ModelView, model=models.Order):
         "status": {"label": "Статус"},
     }
 
+class VehicleAdmin(ModelView, model=models.Vehicle):
+    name = "Автомобиль"
+    name_plural = "🚘 Автомобили (Fitment)"
+    icon = "fa-solid fa-car"
+    
+    column_list = [
+        models.Vehicle.id, 
+        models.Vehicle.make, 
+        models.Vehicle.model, 
+        models.Vehicle.generation, 
+        models.Vehicle.year_from,
+        models.Vehicle.year_to,
+        models.Vehicle.engine
+    ]
+    
+    column_sortable_list = [models.Vehicle.make, models.Vehicle.model]
+    column_searchable_list = [models.Vehicle.make, models.Vehicle.model, models.Vehicle.generation, models.Vehicle.engine]
+    
+    form_columns = [
+        models.Vehicle.make, 
+        models.Vehicle.model, 
+        models.Vehicle.generation, 
+        models.Vehicle.year_from, 
+        models.Vehicle.year_to, 
+        models.Vehicle.engine
+    ]
+    
+    form_args = {
+        "make": {"label": "Марка (RAM, Dodge)"},
+        "model": {"label": "Модель (1500, TRX)"},
+        "generation": {"label": "Поколение (DT, DS)"},
+        "year_from": {"label": "Год начала"},
+        "year_to": {"label": "Год окончания (пусто если н.в.)"},
+        "engine": {"label": "Двигатель (5.7L HEMI)"},
+    }
 
 # ============ MARKETPLACE ADMIN ============
 
@@ -309,6 +356,8 @@ admin.add_view(CategoryAdmin)
 print(f"✅ Added CategoryAdmin")
 admin.add_view(OrderAdmin)
 print(f"✅ Added OrderAdmin")
+admin.add_view(VehicleAdmin)
+print(f"✅ Added VehicleAdmin")
 admin.add_view(SellerAdmin)
 print(f"✅ Added SellerAdmin")
 admin.add_view(ListingAdmin)
@@ -321,6 +370,7 @@ app.include_router(ai.router)
 app.include_router(favorites.router)
 app.include_router(payments.router)
 app.include_router(cdek.router)
+app.include_router(vehicles.router)
 app.include_router(admin_router.router)
 
 @app.on_event("startup")
@@ -330,7 +380,7 @@ async def startup():
     print("🚀 Starting database initialization...")
     
     async with engine.begin() as conn:
-        # Create ALL tables (including marketplace: sellers, listings, subscriptions)
+        # Create ALL tables (including marketplace: sellers, listings, subscriptions, vehicles)
         print("📊 Creating database tables...")
         await conn.run_sync(models.Base.metadata.create_all)
         print("✅ All tables created/verified")
@@ -445,10 +495,34 @@ async def read_products(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     in_stock: Optional[bool] = None,
+    vehicle_make: Optional[str] = None,
+    vehicle_model: Optional[str] = None,
+    vehicle_year: Optional[int] = None,
+    vehicle_engine: Optional[str] = None,
     sort_by: Optional[str] = None,  # price_asc, price_desc, name_asc, name_desc
     db: AsyncSession = Depends(database.get_db)
 ):
     query = select(models.Product).options(selectinload(models.Product.seller))
+    
+    # Фильтр по авто
+    if vehicle_make or vehicle_model:
+        query = query.join(models.Product.vehicles)
+        
+        if vehicle_make:
+            query = query.where(models.Vehicle.make == vehicle_make)
+        if vehicle_model:
+            query = query.where(models.Vehicle.model == vehicle_model)
+        if vehicle_engine:
+            query = query.where(models.Vehicle.engine == vehicle_engine)
+        if vehicle_year:
+            # Год должен попадать в диапазон выпуска авто
+            query = query.where(
+                (models.Vehicle.year_from <= vehicle_year) & 
+                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+            )
+        
+        # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
+        query = query.distinct()
     
     if category_id:
         # Получаем все подкатегории рекурсивно
@@ -509,10 +583,30 @@ async def get_products_count(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     in_stock: Optional[bool] = None,
+    vehicle_make: Optional[str] = None,
+    vehicle_model: Optional[str] = None,
+    vehicle_year: Optional[int] = None,
+    vehicle_engine: Optional[str] = None,
     db: AsyncSession = Depends(database.get_db)
 ):
     from sqlalchemy import func
     query = select(func.count(models.Product.id))
+    
+    # Фильтр по авто (нужен join для count тоже, если фильтруем)
+    if vehicle_make or vehicle_model:
+        query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
+        
+        if vehicle_make:
+            query = query.where(models.Vehicle.make == vehicle_make)
+        if vehicle_model:
+            query = query.where(models.Vehicle.model == vehicle_model)
+        if vehicle_engine:
+            query = query.where(models.Vehicle.engine == vehicle_engine)
+        if vehicle_year:
+            query = query.where(
+                (models.Vehicle.year_from <= vehicle_year) & 
+                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+            )
     
     if category_id:
         # Получаем все подкатегории рекурсивно

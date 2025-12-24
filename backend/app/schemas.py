@@ -2,6 +2,24 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
+# ============ VEHICLES (FITMENT DATA) ============
+
+class VehicleBase(BaseModel):
+    make: str
+    model: str
+    generation: Optional[str] = None
+    year_from: int
+    year_to: Optional[int] = None
+    engine: Optional[str] = None
+
+class VehicleCreate(VehicleBase):
+    pass
+
+class Vehicle(VehicleBase):
+    id: int
+    class Config:
+        from_attributes = True
+
 # Category Schemas
 class CategoryBase(BaseModel):
     name: str
@@ -68,6 +86,7 @@ class Product(ProductBase):
     seller_id: Optional[int] = None
     seller: Optional['SellerPublic'] = None
     views_count: int = 0
+    vehicles: List[Vehicle] = []
     
     class Config:
         from_attributes = True

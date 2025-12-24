@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Text, Table, Enum as SQLEnum
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from .database import Base
@@ -27,6 +27,29 @@ class ListingStatus(str, enum.Enum):
     REJECTED = "rejected"     # Отклонен
     SOLD = "sold"             # Продано
     EXPIRED = "expired"       # Истек срок
+
+# Связующая таблица для Many-to-Many (Товар <-> Автомобиль)
+product_vehicles = Table(
+    "product_vehicles",
+    Base.metadata,
+    Column("product_id", Integer, ForeignKey("products.id"), primary_key=True),
+    Column("vehicle_id", Integer, ForeignKey("vehicles.id"), primary_key=True),
+)
+
+class Vehicle(Base):
+    """База автомобилей для подбора запчастей (Fitment Data)"""
+    __tablename__ = "vehicles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    make = Column(String, index=True)       # Производитель (RAM, Dodge)
+    model = Column(String, index=True)      # Модель (1500, Challenger)
+    generation = Column(String, nullable=True) # Поколение (DT, DS)
+    year_from = Column(Integer)             # Год начала выпуска (2019)
+    year_to = Column(Integer, nullable=True)# Год окончания (2025 или NULL если производится)
+    engine = Column(String, nullable=True)  # Двигатель (5.7L HEMI, 3.0L EcoDiesel)
+
+    # Связь с товарами
+    products = relationship("Product", secondary=product_vehicles, back_populates="vehicles")
 
 class Category(Base):
     __tablename__ = "categories"
@@ -61,6 +84,9 @@ class Product(Base):
     
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     category = relationship("Category", back_populates="products")
+    
+    # Совместимость с авто
+    vehicles = relationship("Vehicle", secondary=product_vehicles, back_populates="products")
     
     # Маркетплейс: чей товар (NULL = RAM US, иначе = ID партнера)
     seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=True)
