@@ -86,7 +86,7 @@ class Product(ProductBase):
     seller_id: Optional[int] = None
     seller: Optional['SellerPublic'] = None
     views_count: int = 0
-    vehicles: List[Vehicle] = []
+    # vehicles: List[Vehicle] = []  # Убрано из response (используется только для фильтрации)
     
     class Config:
         from_attributes = True
