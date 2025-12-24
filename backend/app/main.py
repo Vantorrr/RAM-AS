@@ -373,7 +373,7 @@ app.include_router(cdek.router)
 app.include_router(vehicles.router)
 app.include_router(admin_router.router)
 
-@app.post("/admin/auto-link-products")
+@app.post("/system/auto-link-products")
 async def auto_link_products(db: AsyncSession = Depends(database.get_db)):
     """
     ВРЕМЕННЫЙ ЭНДПОИНТ: Автоматическая привязка товаров к машинам
