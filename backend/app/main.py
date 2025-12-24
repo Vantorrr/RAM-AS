@@ -373,6 +373,144 @@ app.include_router(cdek.router)
 app.include_router(vehicles.router)
 app.include_router(admin_router.router)
 
+@app.post("/admin/auto-link-products")
+async def auto_link_products(db: AsyncSession = Depends(database.get_db)):
+    """
+    ВРЕМЕННЫЙ ЭНДПОИНТ: Автоматическая привязка товаров к машинам
+    """
+    import re
+    
+    print("🚀 Начинаю автоматическую привязку товаров к машинам...")
+    
+    # Получаем все товары и машины
+    products_result = await db.execute(select(models.Product))
+    products = products_result.scalars().all()
+    
+    vehicles_result = await db.execute(select(models.Vehicle))
+    vehicles = vehicles_result.scalars().all()
+    
+    print(f"📦 Товаров: {len(products)}")
+    print(f"🚗 Машин: {len(vehicles)}")
+    
+    # Группируем машины по маркам
+    vehicles_by_make = {}
+    for v in vehicles:
+        if v.make not in vehicles_by_make:
+            vehicles_by_make[v.make] = []
+        vehicles_by_make[v.make].append(v)
+    
+    # Универсальные категории
+    UNIVERSAL_KEYWORDS = [
+        'масло', 'жидкость', 'антифриз', 'тосол', 'омывайка', 
+        'аксессуар', 'ароматизатор', 'коврик', 'чехол', 'органайзер',
+        'держатель', 'зарядное', 'usb', 'видеорегистратор', 'радар',
+        'компрессор', 'насос', 'инструмент', 'ключ', 'домкрат',
+        'трос', 'аптечка', 'огнетушитель', 'знак', 'жилет',
+        'щетка', 'скребок', 'губка', 'салфетка', 'полироль',
+        'шампунь', 'воск', 'полотенце', 'перчатки', 'маска',
+    ]
+    
+    def is_universal(product_name):
+        text = product_name.lower()
+        return any(keyword in text for keyword in UNIVERSAL_KEYWORDS)
+    
+    def get_matching_makes(product_name):
+        text = product_name.lower()
+        matches = []
+        
+        if any(word in text for word in ['ram', 'рам', 'dodge', 'додж', 'jeep', 'джип', 'hemi', 'хеми', 'trx']):
+            matches.extend(['RAM', 'Dodge', 'Jeep'])
+        if any(word in text for word in ['bmw', 'бмв']):
+            matches.append('BMW')
+        if any(word in text for word in ['mercedes', 'мерседес', 'benz', 'бенц']):
+            matches.append('Mercedes-Benz')
+        if any(word in text for word in ['audi', 'ауди']):
+            matches.append('Audi')
+        if any(word in text for word in ['toyota', 'тойота', 'camry', 'камри', 'land cruiser', 'крузер']):
+            matches.append('Toyota')
+        if any(word in text for word in ['lada', 'лада', 'ваз', 'granta', 'гранта', 'vesta', 'веста']):
+            matches.append('Lada')
+        if any(word in text for word in ['volkswagen', 'vw', 'фольксваген', 'polo', 'поло']):
+            matches.append('Volkswagen')
+        if any(word in text for word in ['hyundai', 'хендай', 'solaris', 'солярис', 'creta', 'крета']):
+            matches.append('Hyundai')
+        if any(word in text for word in ['kia', 'киа', 'rio', 'рио']):
+            matches.append('Kia')
+        
+        return list(set(matches))
+    
+    linked_count = 0
+    universal_count = 0
+    specific_count = 0
+    
+    for product in products:
+        # Очищаем старые связи через raw SQL
+        from sqlalchemy import delete
+        await db.execute(
+            delete(models.product_vehicles).where(models.product_vehicles.c.product_id == product.id)
+        )
+        
+        # Проверяем универсальность
+        if is_universal(product.name):
+            # Привязываем ко ВСЕМ машинам
+            for vehicle in vehicles:
+                from sqlalchemy import insert
+                await db.execute(
+                    insert(models.product_vehicles).values(
+                        product_id=product.id,
+                        vehicle_id=vehicle.id
+                    )
+                )
+            universal_count += 1
+            print(f"🌍 {product.name} → ВСЕ {len(vehicles)} машин")
+        else:
+            # Определяем конкретные марки
+            matching_makes = get_matching_makes(product.name)
+            
+            if matching_makes:
+                matched_vehicles = []
+                for make in matching_makes:
+                    if make in vehicles_by_make:
+                        matched_vehicles.extend(vehicles_by_make[make])
+                
+                for vehicle in matched_vehicles:
+                    from sqlalchemy import insert
+                    await db.execute(
+                        insert(models.product_vehicles).values(
+                            product_id=product.id,
+                            vehicle_id=vehicle.id
+                        )
+                    )
+                specific_count += 1
+                print(f"🎯 {product.name} → {matching_makes} ({len(matched_vehicles)} моделей)")
+            else:
+                # Если не определили - привязываем ко всем
+                for vehicle in vehicles:
+                    from sqlalchemy import insert
+                    await db.execute(
+                        insert(models.product_vehicles).values(
+                            product_id=product.id,
+                            vehicle_id=vehicle.id
+                        )
+                    )
+                universal_count += 1
+                print(f"❓ {product.name} → всем (не определено)")
+        
+        linked_count += 1
+    
+    await db.commit()
+    
+    return {
+        "status": "success",
+        "message": "Товары успешно привязаны к машинам!",
+        "stats": {
+            "total_products": linked_count,
+            "universal": universal_count,
+            "specific": specific_count,
+            "total_vehicles": len(vehicles)
+        }
+    }
+
 @app.on_event("startup")
 async def startup():
     from sqlalchemy import text
