@@ -495,6 +495,8 @@ function AdminContent() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: editingProduct.name,
+          part_number: editingProduct.part_number,
           price_rub: editingProduct.price_rub,
           stock_quantity: editingProduct.stock_quantity,
           image_url: editingProduct.image_url,
@@ -1114,10 +1116,34 @@ function AdminContent() {
         </div>
 
         <div className="space-y-4">
-          <Card className="bg-white/5 border-white/10 p-4">
-            <p className="text-xs text-muted-foreground mb-1">Название</p>
-            <p className="font-medium text-sm">{editingProduct.name}</p>
-            <p className="text-xs text-muted-foreground mt-2">Артикул: {editingProduct.part_number}</p>
+          <Card className="bg-white/5 border-white/10 p-4 space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <Package className="h-3 w-3 inline mr-1" />
+                Название товара
+              </label>
+              <Input
+                type="text"
+                value={editingProduct.name}
+                onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
+                className="bg-white/5 border-white/10"
+                placeholder="Введите название..."
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <Tag className="h-3 w-3 inline mr-1" />
+                Артикул
+              </label>
+              <Input
+                type="text"
+                value={editingProduct.part_number}
+                onChange={e => setEditingProduct({...editingProduct, part_number: e.target.value})}
+                className="bg-white/5 border-white/10"
+                placeholder="Введите артикул..."
+              />
+            </div>
           </Card>
 
           <Card className="bg-white/5 border-white/10 p-4 space-y-4">

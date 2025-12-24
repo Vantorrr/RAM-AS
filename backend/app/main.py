@@ -638,6 +638,18 @@ async def create_product(product: schemas.ProductCreate, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail="Product with this part number already exists")
     return await crud.create_product(db=db, product=product)
 
+@app.put("/products/{product_id}", response_model=schemas.Product)
+async def update_product(
+    product_id: int,
+    product_update: schemas.ProductUpdate,
+    db: AsyncSession = Depends(database.get_db)
+):
+    """Обновить товар"""
+    db_product = await crud.update_product(db, product_id, product_update)
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return db_product
+
 async def get_all_subcategory_ids(db: AsyncSession, category_id: int) -> List[int]:
     """Получить все ID подкатегорий рекурсивно"""
     result = await db.execute(

@@ -31,6 +31,25 @@ async def create_product(db: AsyncSession, product: schemas.ProductCreate):
     await db.refresh(db_product)
     return db_product
 
+async def update_product(db: AsyncSession, product_id: int, product_update: schemas.ProductUpdate):
+    """Обновить товар"""
+    result = await db.execute(
+        select(models.Product).where(models.Product.id == product_id)
+    )
+    db_product = result.scalars().first()
+    
+    if not db_product:
+        return None
+    
+    # Обновляем только те поля, которые переданы
+    update_data = product_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_product, field, value)
+    
+    await db.commit()
+    await db.refresh(db_product)
+    return db_product
+
 # Category CRUD
 async def get_categories(db: AsyncSession):
     result = await db.execute(select(models.Category))
