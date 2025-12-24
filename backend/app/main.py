@@ -755,48 +755,78 @@ async def get_products_count(
     db: AsyncSession = Depends(database.get_db)
 ):
     from sqlalchemy import func
-    query = select(func.count(models.Product.id))
     
-    # Фильтр по авто (нужен join для count тоже, если фильтруем)
-    if vehicle_make or vehicle_model:
-        query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
+    try:
+        query = select(func.count(models.Product.id))
         
-        if vehicle_make:
-            query = query.where(models.Vehicle.make == vehicle_make)
-        if vehicle_model:
-            query = query.where(models.Vehicle.model == vehicle_model)
-        if vehicle_engine:
-            query = query.where(models.Vehicle.engine == vehicle_engine)
-        if vehicle_year:
+        # Фильтр по авто (нужен join для count тоже, если фильтруем)
+        if vehicle_make or vehicle_model:
+            query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
+            
+            if vehicle_make:
+                query = query.where(models.Vehicle.make == vehicle_make)
+            if vehicle_model:
+                query = query.where(models.Vehicle.model == vehicle_model)
+            if vehicle_engine:
+                query = query.where(models.Vehicle.engine == vehicle_engine)
+            if vehicle_year:
+                query = query.where(
+                    (models.Vehicle.year_from <= vehicle_year) & 
+                    ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+                )
+        
+        if category_id:
+            # Получаем все подкатегории рекурсивно
+            all_category_ids = await get_all_subcategory_ids(db, category_id)
+            query = query.where(models.Product.category_id.in_(all_category_ids))
+        
+        if search:
+            search_filter = f"%{search}%"
             query = query.where(
-                (models.Vehicle.year_from <= vehicle_year) & 
-                ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
+                (models.Product.name.ilike(search_filter)) |
+                (models.Product.part_number.ilike(search_filter)) |
+                (models.Product.manufacturer.ilike(search_filter))
             )
-    
-    if category_id:
-        # Получаем все подкатегории рекурсивно
-        all_category_ids = await get_all_subcategory_ids(db, category_id)
-        query = query.where(models.Product.category_id.in_(all_category_ids))
-    
-    if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            (models.Product.name.ilike(search_filter)) |
-            (models.Product.part_number.ilike(search_filter)) |
-            (models.Product.manufacturer.ilike(search_filter))
-        )
-    
-    if min_price is not None:
-        query = query.where(models.Product.price_rub >= min_price)
-    
-    if max_price is not None:
-        query = query.where(models.Product.price_rub <= max_price)
-    
-    if in_stock is not None:
-        query = query.where(models.Product.is_in_stock == in_stock)
-    
-    result = await db.execute(query)
-    return {"count": result.scalar()}
+        
+        if min_price is not None:
+            query = query.where(models.Product.price_rub >= min_price)
+        
+        if max_price is not None:
+            query = query.where(models.Product.price_rub <= max_price)
+        
+        if in_stock is not None:
+            query = query.where(models.Product.is_in_stock == in_stock)
+        
+        result = await db.execute(query)
+        return {"count": result.scalar()}
+    except Exception as e:
+        # Если ошибка с фильтром по машинам (например, нет связей), возвращаем счёт без фильтра
+        print(f"⚠️ Error in products count with vehicle filter: {e}")
+        query = select(func.count(models.Product.id))
+        
+        if category_id:
+            all_category_ids = await get_all_subcategory_ids(db, category_id)
+            query = query.where(models.Product.category_id.in_(all_category_ids))
+        
+        if search:
+            search_filter = f"%{search}%"
+            query = query.where(
+                (models.Product.name.ilike(search_filter)) |
+                (models.Product.part_number.ilike(search_filter)) |
+                (models.Product.manufacturer.ilike(search_filter))
+            )
+        
+        if min_price is not None:
+            query = query.where(models.Product.price_rub >= min_price)
+        
+        if max_price is not None:
+            query = query.where(models.Product.price_rub <= max_price)
+        
+        if in_stock is not None:
+            query = query.where(models.Product.is_in_stock == in_stock)
+        
+        result = await db.execute(query)
+        return {"count": result.scalar()}
 
 @app.get("/products/{product_id}", response_model=schemas.Product)
 async def read_product(product_id: int, db: AsyncSession = Depends(database.get_db)):
