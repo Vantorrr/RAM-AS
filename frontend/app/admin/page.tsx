@@ -347,6 +347,36 @@ function AdminContent() {
     }
   }, [loadCategories])
 
+  // Categories: обновить категорию
+  const updateCategory = async () => {
+    if (!editingCat) return
+    setCatSaving(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/categories/${editingCat.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingCat.name,
+          slug: editingCat.slug,
+          parent_id: editingCat.parent_id,
+          image_url: editingCat.image_url
+        })
+      })
+      if (res.ok) {
+        loadCategories()
+        setEditingCat(null)
+        alert('✅ Категория обновлена')
+      } else {
+        const err = await res.json()
+        alert(err.detail || '❌ Ошибка обновления')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+    } finally {
+      setCatSaving(false)
+    }
+  }
+
   // Update seller status
   const updateSellerStatus = async (sellerId: number, status: string, rejectionReason?: string, maxProducts?: number, subscriptionTier?: string) => {
     try {
@@ -876,6 +906,57 @@ function AdminContent() {
             <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
+
+        {/* Edit category */}
+        {editingCat && (
+          <Card className="bg-amber-500/10 border-amber-500/20 p-4 mb-6">
+            <h3 className="font-bold mb-3 flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Редактирование: {editingCat.name}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input
+                placeholder="Название"
+                value={editingCat.name}
+                onChange={e => setEditingCat({...editingCat, name: e.target.value})}
+                className="bg-white/10 border-white/20"
+              />
+              <Input
+                placeholder="Slug"
+                value={editingCat.slug}
+                onChange={e => setEditingCat({...editingCat, slug: e.target.value})}
+                className="bg-white/10 border-white/20"
+              />
+            </div>
+            <div className="flex gap-3 mb-3">
+              <select
+                value={editingCat.parent_id || ''}
+                onChange={e => setEditingCat({...editingCat, parent_id: e.target.value ? Number(e.target.value) : null})}
+                className="flex-1 bg-white/10 border border-white/20 rounded-md p-2 text-sm"
+              >
+                <option value="">Корневая категория</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id} disabled={cat.id === editingCat.id}>{cat.name}</option>
+                ))}
+              </select>
+              <Input
+                placeholder="URL фото (опционально)"
+                value={editingCat.image_url || ''}
+                onChange={e => setEditingCat({...editingCat, image_url: e.target.value})}
+                className="bg-white/10 border-white/20 flex-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={updateCategory} disabled={catSaving} className="bg-amber-500 text-black hover:bg-amber-600">
+                {catSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                Сохранить
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingCat(null)}>
+                Отмена
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Add new category */}
         <Card className="bg-cyan-500/10 border-cyan-500/20 p-4 mb-6">

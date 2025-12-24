@@ -40,7 +40,7 @@ export function FavoritesView({ onBack, onProductClick }: FavoritesViewProps) {
             }
 
             try {
-                const res = await fetch(`${API_URL}/favorites/?user_telegram_id=${user.id}`)
+                const res = await fetch(`${API_URL}/favorites/${user.id}`)
                 if (res.ok) {
                     const data = await res.json()
                     setProducts(data)
