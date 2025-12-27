@@ -373,152 +373,6 @@ app.include_router(cdek.router)
 app.include_router(vehicles.router)
 app.include_router(admin_router.router)
 
-# 🤖 AI-функция для автоматической привязки товаров к машинам
-async def ai_link_products_to_vehicles():
-    """
-    Использует OpenAI для анализа названий товаров и автоматической привязки к подходящим машинам
-    """
-    import openai
-    import os
-    from sqlalchemy import insert, select as sql_select
-    from sqlalchemy.orm import Session
-    
-    # OpenAI API (OpenRouter)
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    if openai.api_key:
-        openai.base_url = "https://openrouter.ai/api/v1"
-    else:
-        print("⚠️ OPENAI_API_KEY не найден! AI-привязка невозможна")
-        return
-    
-    print("🤖 AI-привязка: Начало работы...")
-    
-    # Используем синхронную сессию для фоновой задачи
-    from sqlalchemy.orm import sessionmaker
-    SessionLocal = sessionmaker(bind=sync_engine)
-    db = SessionLocal()
-    
-    try:
-        # Получаем все товары и машины
-        products = db.query(models.Product).all()
-        vehicles = db.query(models.Vehicle).all()
-        
-        print(f"📦 Товаров: {len(products)}, 🚗 Машин: {len(vehicles)}")
-        
-        # Группируем машины по маркам для быстрого доступа
-        vehicles_by_make = {}
-        for v in vehicles:
-            if v.make not in vehicles_by_make:
-                vehicles_by_make[v.make] = []
-            vehicles_by_make[v.make].append(v)
-        
-        # Список всех марок машин
-        all_makes = list(vehicles_by_make.keys())
-        
-        # Обрабатываем товары батчами по 10 штук
-        batch_size = 10
-        total_linked = 0
-        
-        for i in range(0, len(products), batch_size):
-            batch = products[i:i+batch_size]
-            
-            # Формируем промпт для AI
-            products_info = "\n".join([
-                f"{p.id}. {p.name} ({p.part_number})" 
-                for p in batch
-            ])
-            
-            prompt = f"""Ты эксперт по автозапчастям. Проанализируй следующие товары и определи, к каким маркам машин они подходят.
-
-Доступные марки: {', '.join(all_makes)}
-
-Товары:
-{products_info}
-
-Правила:
-1. Если товар универсальный (масло, аксессуары, инструменты) - пиши "ALL"
-2. Если подходит к конкретным маркам - перечисли их через запятую
-3. Если в названии упомянута марка - это главный признак
-4. RAM, Dodge, Jeep - американские марки, часто взаимозаменяемы
-
-Ответ в формате JSON:
-{{
-  "1": ["RAM", "Dodge"] или ["ALL"],
-  "2": ["Toyota"],
-  ...
-}}"""
-            
-            try:
-                # Вызываем OpenAI
-                response = openai.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    response_format={"type": "json_object"}
-                )
-                
-                import json
-                result = json.loads(response.choices[0].message.content)
-                
-                # Применяем результат
-                for product in batch:
-                    product_id_str = str(product.id)
-                    if product_id_str not in result:
-                        continue
-                    
-                    makes = result[product_id_str]
-                    
-                    if "ALL" in makes:
-                        # Привязываем ко всем машинам
-                        for vehicle in vehicles:
-                            db.execute(
-                                insert(models.product_vehicles).values(
-                                    product_id=product.id,
-                                    vehicle_id=vehicle.id
-                                ).on_conflict_do_nothing()
-                            )
-                        print(f"🌍 {product.name} → ВСЕ")
-                    else:
-                        # Привязываем к конкретным маркам
-                        linked_vehicles = []
-                        for make in makes:
-                            if make in vehicles_by_make:
-                                linked_vehicles.extend(vehicles_by_make[make])
-                        
-                        for vehicle in linked_vehicles:
-                            db.execute(
-                                insert(models.product_vehicles).values(
-                                    product_id=product.id,
-                                    vehicle_id=vehicle.id
-                                ).on_conflict_do_nothing()
-                            )
-                        print(f"🎯 {product.name} → {makes} ({len(linked_vehicles)} моделей)")
-                    
-                    total_linked += 1
-                
-                db.commit()
-                print(f"✅ Обработано {i+len(batch)}/{len(products)}")
-                
-            except Exception as e:
-                print(f"❌ Ошибка AI для батча {i}: {e}")
-                # В случае ошибки привязываем ко всем
-                for product in batch:
-                    for vehicle in vehicles:
-                        db.execute(
-                            insert(models.product_vehicles).values(
-                                product_id=product.id,
-                                vehicle_id=vehicle.id
-                            ).on_conflict_do_nothing()
-                        )
-                db.commit()
-        
-        print(f"🎉 AI-привязка завершена! Обработано товаров: {total_linked}")
-        
-    except Exception as e:
-        print(f"❌ Критическая ошибка AI-привязки: {e}")
-    finally:
-        db.close()
-
 @app.on_event("startup")
 async def startup():
     from sqlalchemy import text
@@ -591,19 +445,6 @@ async def startup():
     
     print("✅ Database ready!")
     
-    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ (ПРИНУДИТЕЛЬНО!)
-    print("🤖 ЗАПУСК AI-ПРИВЯЗКИ...")
-    from sqlalchemy import text as sql_text
-    async with engine.begin() as conn:
-        # ВСЕГДА очищаем и запускаем заново (временно, для теста)
-        print("🧹 Очистка product_vehicles...")
-        await conn.execute(sql_text("TRUNCATE TABLE product_vehicles"))
-        print("✅ Таблица очищена!")
-    
-    # Запускаем AI-привязку в фоне
-    asyncio.create_task(ai_link_products_to_vehicles())
-    print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
-    
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
     if bot:
@@ -624,6 +465,102 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.post("/admin/link-products-simple")
+async def link_products_simple(db: AsyncSession = Depends(database.get_db)):
+    """
+    ПРОСТАЯ ПРИВЯЗКА ТОВАРОВ К МАШИНАМ
+    По ключевым словам в названии, БЕЗ AI
+    """
+    from sqlalchemy import text, insert
+    
+    print("🚀 ПРОСТАЯ ПРИВЯЗКА: СТАРТ")
+    
+    # Очищаем таблицу
+    await db.execute(text("TRUNCATE TABLE product_vehicles"))
+    await db.commit()
+    
+    # Получаем товары
+    result = await db.execute(text("""
+        SELECT id, name, part_number, manufacturer 
+        FROM products 
+        ORDER BY id
+    """))
+    products = result.fetchall()
+    
+    # ID диапазоны машин
+    RAM_IDS = list(range(1, 47))        # 1-46
+    DODGE_IDS = list(range(47, 140))    # 47-139
+    JEEP_IDS = list(range(140, 186))    # 140-185
+    CHRYSLER_IDS = list(range(186, 232))# 186-231
+    ALL_IDS = list(range(1, 232))       # 1-231
+    
+    # Универсальные детали
+    UNIVERSAL_KW = [
+        'масло', 'oil', 'жидкость', 'fluid', 'моющ', 'wash',
+        'свеч', 'spark', 'воздушн', 'air filter', 'салон', 'cabin',
+        'antifreeze', 'антифриз', 'очистител', 'cleaner',
+        'присадк', 'additive', 'герметик', 'sealant',
+        'смазка', 'grease', 'brake fluid', 'тормозная жидкость'
+    ]
+    
+    total_links = 0
+    linked_products = []
+    
+    for product_id, name, part_number, manufacturer in products:
+        text_check = f"{name} {part_number or ''} {manufacturer or ''}".upper()
+        
+        vehicle_ids = []
+        reason = ""
+        
+        # Проверяем универсальные
+        is_universal = any(kw.upper() in text_check for kw in UNIVERSAL_KW)
+        
+        if is_universal:
+            vehicle_ids = ALL_IDS
+            reason = "УНИВЕРСАЛЬНАЯ"
+        elif 'RAM' in text_check or '1500' in text_check or '2500' in text_check:
+            vehicle_ids = RAM_IDS
+            reason = "RAM"
+        elif 'DODGE' in text_check or 'CHALLENGER' in text_check or 'CHARGER' in text_check:
+            vehicle_ids = DODGE_IDS
+            reason = "DODGE"
+        elif 'JEEP' in text_check or 'WRANGLER' in text_check or 'CHEROKEE' in text_check:
+            vehicle_ids = JEEP_IDS
+            reason = "JEEP"
+        elif 'CHRYSLER' in text_check or 'PACIFICA' in text_check:
+            vehicle_ids = CHRYSLER_IDS
+            reason = "CHRYSLER"
+        else:
+            vehicle_ids = ALL_IDS
+            reason = "ВСЕ"
+        
+        # Вставляем связи
+        for vid in vehicle_ids:
+            await db.execute(text("""
+                INSERT INTO product_vehicles (product_id, vehicle_id)
+                VALUES (:pid, :vid)
+                ON CONFLICT DO NOTHING
+            """), {"pid": product_id, "vid": vid})
+        
+        total_links += len(vehicle_ids)
+        linked_products.append({
+            "id": product_id,
+            "name": name[:50],
+            "reason": reason,
+            "vehicles_count": len(vehicle_ids)
+        })
+    
+    await db.commit()
+    
+    print(f"✅ ГОТОВО! Связей: {total_links:,}")
+    
+    return {
+        "success": True,
+        "total_products": len(products),
+        "total_links": total_links,
+        "examples": linked_products[:10]
+    }
 
 @app.post("/products/", response_model=schemas.Product)
 async def create_product(product: schemas.ProductCreate, db: AsyncSession = Depends(database.get_db)):
