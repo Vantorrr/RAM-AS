@@ -383,7 +383,9 @@ async def ai_link_products_to_vehicles():
     from sqlalchemy import insert, select as sql_select
     from sqlalchemy.orm import Session
     
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    # OpenRouter API
+    openai.api_key = os.getenv("OPENAI_API_KEY") or "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"
+    openai.base_url = "https://openrouter.ai/api/v1"
     
     print("🤖 AI-привязка: Начало работы...")
     
@@ -585,20 +587,18 @@ async def startup():
     
     print("✅ Database ready!")
     
-    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ (запускается ТОЛЬКО ОДИН РАЗ!)
+    # 🤖 AI-ПРИВЯЗКА ТОВАРОВ К МАШИНАМ (ПРИНУДИТЕЛЬНО!)
+    print("🤖 ЗАПУСК AI-ПРИВЯЗКИ...")
     from sqlalchemy import text as sql_text
     async with engine.begin() as conn:
-        # Проверяем, есть ли уже связи
-        existing_links = await conn.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
-        links_count = existing_links.scalar()
-        
-        if links_count == 0:
-            print("🤖 Связей не найдено! Запуск AI-привязки...")
-            # Запускаем AI-привязку в фоне (не блокируем запуск сервера)
-            asyncio.create_task(ai_link_products_to_vehicles())
-            print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
-        else:
-            print(f"✅ Связи уже существуют ({links_count} шт), AI-привязка не требуется!")
+        # ВСЕГДА очищаем и запускаем заново (временно, для теста)
+        print("🧹 Очистка product_vehicles...")
+        await conn.execute(sql_text("TRUNCATE TABLE product_vehicles"))
+        print("✅ Таблица очищена!")
+    
+    # Запускаем AI-привязку в фоне
+    asyncio.create_task(ai_link_products_to_vehicles())
+    print("✅ AI-привязка запущена! Процесс займёт 30-40 минут.")
     
     # Start bot polling in background
     from .bot import bot, dp, ADMIN_CHAT_IDS, WEBAPP_URL
