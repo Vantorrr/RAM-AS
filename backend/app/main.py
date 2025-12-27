@@ -704,7 +704,7 @@ async def get_products_count(
     vehicle_engine: Optional[str] = None,
     db: AsyncSession = Depends(database.get_db)
 ):
-    from sqlalchemy import func, text as sql_text
+    from sqlalchemy import func, text as sql_text, distinct
     
     # ПРОВЕРЯЕМ: есть ли связи в product_vehicles?
     links_check = await db.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
