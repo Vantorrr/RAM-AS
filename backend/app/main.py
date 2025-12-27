@@ -383,9 +383,13 @@ async def ai_link_products_to_vehicles():
     from sqlalchemy import insert, select as sql_select
     from sqlalchemy.orm import Session
     
-    # OpenRouter API
-    openai.api_key = os.getenv("OPENAI_API_KEY") or "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"
-    openai.base_url = "https://openrouter.ai/api/v1"
+    # OpenAI API (OpenRouter)
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+    if openai.api_key:
+        openai.base_url = "https://openrouter.ai/api/v1"
+    else:
+        print("⚠️ OPENAI_API_KEY не найден! AI-привязка невозможна")
+        return
     
     print("🤖 AI-привязка: Начало работы...")
     

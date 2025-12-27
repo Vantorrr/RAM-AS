@@ -23,7 +23,9 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
 # OpenAI API (используем OpenRouter)
-openai.api_key = "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"
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    raise Exception("OPENAI_API_KEY не найден в переменных окружения!")
 openai.base_url = "https://openrouter.ai/api/v1"
 
 # Создаём async движок
