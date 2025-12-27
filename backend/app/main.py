@@ -706,15 +706,14 @@ async def get_products_count(
 ):
     from sqlalchemy import func, text as sql_text
     
-    query = select(func.count(models.Product.id))
-    
     # ПРОВЕРЯЕМ: есть ли связи в product_vehicles?
     links_check = await db.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
     links_count = links_check.scalar()
     
-    # Фильтр по авто (ТОЛЬКО если AI отработал!)
+    # Начинаем с базового query
     if (vehicle_make or vehicle_model) and links_count > 0:
-        query = select(func.count(distinct(models.Product.id))).join(models.Product.vehicles)
+        # С фильтром по авто - используем distinct и JOIN
+        query = select(func.count(distinct(models.Product.id))).select_from(models.Product).join(models.Product.vehicles)
         
         if vehicle_make:
             query = query.where(models.Vehicle.make == vehicle_make)
@@ -727,6 +726,9 @@ async def get_products_count(
                 (models.Vehicle.year_from <= vehicle_year) & 
                 ((models.Vehicle.year_to == None) | (models.Vehicle.year_to >= vehicle_year))
             )
+    else:
+        # Без фильтра по авто - обычный count
+        query = select(func.count(models.Product.id)).select_from(models.Product)
     
     # ВРЕМЕННО: все категории показывают товары из склада (50)
     if category_id and category_id != 50:
