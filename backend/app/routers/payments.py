@@ -659,26 +659,25 @@ async def paymaster_webhook(
 def calculate_tbank_token(params: dict, password: str) -> str:
     """
     Генерирует токен для T-Bank API
-    Token = SHA-256(параметры + Password)
+    Token = SHA-256(отсортированные_параметры + Password_в_конце)
     
-    Алгоритм:
-    1. Добавить Password в параметры
-    2. Отсортировать по ключу
-    3. Конкатенировать значения
+    Алгоритм по документации T-Bank:
+    1. Отсортировать параметры по ключу (БЕЗ Password)
+    2. Конкатенировать значения
+    3. Добавить Password В КОНЕЦ
     4. SHA-256
     """
-    # Копируем параметры и добавляем Password
-    token_params = params.copy()
-    token_params["Password"] = password
+    # Сортируем параметры по ключу
+    sorted_keys = sorted(params.keys())
+    values = [str(params[k]) for k in sorted_keys]
     
-    # Сортируем по ключу и конкатенируем значения
-    sorted_keys = sorted(token_params.keys())
-    values = [str(token_params[k]) for k in sorted_keys]
+    # Добавляем Password В КОНЕЦ (не сортируем!)
+    values.append(password)
     
     concatenated = "".join(values)
     token = hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
     
-    print(f"🔐 Token params: {sorted_keys}")
+    print(f"🔐 Token params (sorted): {sorted_keys} + Password")
     print(f"🔐 Token string: {concatenated}")
     print(f"🔐 Token hash: {token}")
     
