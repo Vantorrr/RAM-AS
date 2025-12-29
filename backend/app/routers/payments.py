@@ -716,12 +716,15 @@ async def create_tbank_payment(
     amount_kopecks = int(order.total_amount * 100)  # в копейках!
     order_id = f"order_{order.id}_{int(datetime.now().timestamp())}"
     
+    description = f"Оплата заказа #{order.id}"
+    
     print(f"🔑 TBANK_TERMINAL_KEY: {TBANK_TERMINAL_KEY}")
     print(f"🔑 TBANK_PASSWORD: {TBANK_PASSWORD[:5]}...{TBANK_PASSWORD[-5:]}")
     
-    # Параметры для токена (по документации T-Bank - БЕЗ Description!)
+    # Параметры для токена (ВСЕ однострочные значения, кроме DATA и Receipt!)
     token_params = {
         "Amount": amount_kopecks,
+        "Description": description,
         "OrderId": order_id,
         "TerminalKey": TBANK_TERMINAL_KEY
     }
@@ -729,12 +732,12 @@ async def create_tbank_payment(
     # Генерируем токен
     token = calculate_tbank_token(token_params, TBANK_PASSWORD)
     
-    # Полные параметры запроса (БЕЗ DATA для теста)
+    # Полные параметры запроса
     params = {
         "TerminalKey": TBANK_TERMINAL_KEY,
         "Amount": amount_kopecks,
         "OrderId": order_id,
-        "Description": f"Оплата заказа #{order.id}",
+        "Description": description,
         "Token": token
     }
     
