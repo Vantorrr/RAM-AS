@@ -53,13 +53,12 @@ export function SubscriptionPaymentView({ onBack, sellerId, currentTier }: Subsc
     setError(null)
 
     try {
-      const res = await fetch(`${API_URL}/payments/create-invoice`, {
+      const res = await fetch(`${API_URL}/payments/tbank/subscription/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           seller_id: sellerId,
-          subscription_tier: tier,
-          test_mode: true // TODO: Set to false in production
+          tier: tier
         })
       })
 
@@ -69,8 +68,15 @@ export function SubscriptionPaymentView({ onBack, sellerId, currentTier }: Subsc
 
       const data = await res.json()
       
-      // Open payment URL
-      window.open(data.payment_url, "_blank")
+      // Open payment URL (T-Bank)
+      if (typeof window !== 'undefined') {
+        const tg = (window as any).Telegram?.WebApp
+        if (tg?.openLink) {
+          tg.openLink(data.payment_url)
+        } else {
+          window.open(data.payment_url, "_blank")
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Ошибка создания платежа")
     } finally {
@@ -224,7 +230,7 @@ export function SubscriptionPaymentView({ onBack, sellerId, currentTier }: Subsc
       <Card className="bg-white/5 border-white/10">
         <CardContent className="p-4">
           <p className="text-xs text-muted-foreground text-center">
-            💳 <b>Тестовый режим:</b> Используйте карту <code className="text-green-400">4100 0000 0000 0001</code>
+            💳 <b>Оплата через T-Bank</b>
           </p>
           <p className="text-xs text-muted-foreground text-center mt-2">
             После оплаты подписка активируется автоматически
