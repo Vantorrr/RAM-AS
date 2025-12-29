@@ -1648,19 +1648,12 @@ function AdminContent() {
               id: 0,
               name: '',
               part_number: '',
-              description: null,
-              manufacturer: null,
               price_rub: 0,
-              price_usd: 0,
               is_in_stock: true,
               stock_quantity: 0,
               image_url: null,
-              is_preorder: false,
               is_installment_available: false,
-              category_id: 1,
-              category: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              category_id: 1
             }); 
             if (categories.length === 0) loadCategories(); 
             setView('create'); 
