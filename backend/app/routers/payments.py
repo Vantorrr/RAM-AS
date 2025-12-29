@@ -716,10 +716,9 @@ async def create_tbank_payment(
     amount_kopecks = int(order.total_amount * 100)  # в копейках!
     order_id = f"order_{order.id}_{int(datetime.now().timestamp())}"
     
-    # Параметры для токена (только те, что участвуют в токене)
+    # Параметры для токена (по документации T-Bank - БЕЗ Description!)
     token_params = {
         "Amount": amount_kopecks,
-        "Description": f"Оплата заказа #{order.id}",
         "OrderId": order_id,
         "TerminalKey": TBANK_TERMINAL_KEY
     }
@@ -732,7 +731,7 @@ async def create_tbank_payment(
         "TerminalKey": TBANK_TERMINAL_KEY,
         "Amount": amount_kopecks,
         "OrderId": order_id,
-        "Description": token_params["Description"],
+        "Description": f"Оплата заказа #{order.id}",
         "Token": token,
         "DATA": {
             "order_id": str(order.id)
