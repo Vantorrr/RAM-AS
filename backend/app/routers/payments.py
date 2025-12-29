@@ -37,7 +37,7 @@ if not PAYMASTER_MERCHANT_ID or not PAYMASTER_BEARER_TOKEN:
 
 # T-Bank Configuration (PRODUCTION)
 TBANK_TERMINAL_KEY = os.getenv("TBANK_TERMINAL_KEY", "1766825321741")
-TBANK_PASSWORD = os.getenv("TBANK_PASSWORD", "0W0qq&IxbbRu*LeL")
+TBANK_PASSWORD = os.getenv("TBANK_PASSWORD", "QWQqq&!xbbRu*LeL")
 TBANK_API_URL = "https://securepay.tinkoff.ru/v2"
 
 if not TBANK_TERMINAL_KEY or not TBANK_PASSWORD:
