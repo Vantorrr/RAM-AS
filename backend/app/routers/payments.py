@@ -318,82 +318,18 @@ async def create_order_invoice(
     )
 
 
-@router.post("/create-listing-invoice", response_model=InvoiceResponse)
+@router.post("/create-listing-invoice")
 async def create_listing_invoice(
     request: CreateListingInvoiceRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Создает счет на оплату размещения объявления в барахолке
+    DEPRECATED: Используйте /tbank/listing/init
+    Редирект для обратной совместимости
     """
-    
-    # Проверяем, существует ли объявление
-    result = await db.execute(
-        select(models.Listing).where(models.Listing.id == request.listing_id)
-    )
-    listing = result.scalar_one_or_none()
-    
-    if not listing:
-        raise HTTPException(status_code=404, detail="Listing not found")
-    
-    # Формируем payload для PayMaster API
-    payload = {
-        "merchantId": PAYMASTER_MERCHANT_ID,
-        "testMode": request.test_mode,
-        "invoice": {
-            "description": f"Размещение объявления — Барахолка RAM-US",
-            "orderNo": f"listing_{listing.id}_{int(datetime.now().timestamp())}",
-            "params": {
-                "listing_id": str(listing.id),
-                "type": "listing"
-            }
-        },
-        "amount": {
-            "value": float(LISTING_PRICE),
-            "currency": "RUB"
-        },
-        "protocol": {
-            "callbackUrl": f"{BACKEND_URL}/payments/webhook",
-            "returnUrl": f"https://t.me/ram_us_bot/app?startapp=listing_success_{listing.id}"
-        }
-    }
-    
-    headers = {
-        "Authorization": f"Bearer {PAYMASTER_BEARER_TOKEN}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{PAYMASTER_API_URL}/invoices",
-            json=payload,
-            headers=headers,
-            timeout=30.0
-        )
-        
-        if response.status_code != 200:
-            print(f"❌ PayMaster API Error: {response.status_code} - {response.text}")
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=f"PayMaster API Error: {response.text}"
-            )
-        
-        invoice_data = response.json()
-        print(f"✅ PayMaster Response: {json.dumps(invoice_data, indent=2, ensure_ascii=False)}")
-        
-        if "paymentId" not in invoice_data or "url" not in invoice_data:
-            print(f"❌ Missing 'paymentId' or 'url' in PayMaster response: {invoice_data}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Invalid PayMaster response: {invoice_data}"
-            )
-    
-    return InvoiceResponse(
-        invoice_id=invoice_data["paymentId"],
-        payment_url=invoice_data["url"],
-        amount=LISTING_PRICE
-    )
+    # Вызываем новый T-Bank endpoint
+    listing_request = ListingPaymentRequest(listing_id=request.listing_id)
+    return await init_listing_payment(listing_request, db)
 
 
 @router.post("/webhook")
