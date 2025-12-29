@@ -73,7 +73,7 @@ function AdminContent() {
   // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
   const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase') || 'dashboard'
   
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'>(initialView)
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'create' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'>(initialView)
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
@@ -1250,6 +1250,221 @@ function AdminContent() {
     )
   }
 
+  // Create view
+  if (view === 'create') {
+    // Загружаем категории если еще не загружены
+    useEffect(() => {
+      if (categories.length === 0) {
+        loadCategories()
+      }
+    }, [])
+    
+    return (
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-lg font-bold">✨ Добавить товар</h1>
+        </div>
+
+        <div className="space-y-4">
+          <Card className="bg-white/5 border-white/10 p-4 space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <Package className="h-3 w-3 inline mr-1" />
+                Название товара *
+              </label>
+              <Input
+                type="text"
+                value={editingProduct?.name || ''}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), name: e.target.value})}
+                className="bg-white/5 border-white/10"
+                placeholder="Введите название товара..."
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <Tag className="h-3 w-3 inline mr-1" />
+                Артикул *
+              </label>
+              <Input
+                type="text"
+                value={editingProduct?.part_number || ''}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), part_number: e.target.value})}
+                className="bg-white/5 border-white/10"
+                placeholder="Введите артикул..."
+              />
+            </div>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10 p-4 space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <DollarSign className="h-3 w-3 inline mr-1" />
+                Цена (₽) *
+              </label>
+              <Input
+                type="number"
+                value={editingProduct?.price_rub || ""}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), price_rub: parseFloat(e.target.value) || 0})}
+                className="bg-white/5 border-white/10"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <Box className="h-3 w-3 inline mr-1" />
+                Количество на складе
+              </label>
+              <Input
+                type="number"
+                value={editingProduct?.stock_quantity || 0}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), stock_quantity: parseInt(e.target.value) || 0})}
+                className="bg-white/5 border-white/10"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <FolderTree className="h-3 w-3 inline mr-1" />
+                Категория
+              </label>
+              <select 
+                value={editingProduct?.category_id || ''}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), category_id: parseInt(e.target.value) || 1})}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
+              >
+                <option value="">Выберите категорию...</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                <ImageIcon className="h-3 w-3 inline mr-1" />
+                Фото товара
+              </label>
+              
+              {editingProduct?.image_url && (
+                <div className="mb-2 relative w-32 h-32 rounded-lg overflow-hidden bg-white/5">
+                  <img 
+                    src={editingProduct.image_url} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              <div className="flex gap-2 mb-2">
+                <label className="flex-1 cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 p-3 bg-ram-red/20 hover:bg-ram-red/30 border border-ram-red/50 rounded-lg transition-colors">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm font-medium">📷 Загрузить фото</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              
+              <Input
+                type="url"
+                placeholder="Или вставьте URL фото..."
+                value={editingProduct?.image_url || ""}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), image_url: e.target.value || null})}
+                className="bg-white/5 border-white/10 text-xs"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingProduct?.is_in_stock || false}
+                  onChange={e => setEditingProduct({...(editingProduct || {} as Product), is_in_stock: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm">✅ В наличии</span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingProduct?.is_installment_available || false}
+                  onChange={e => setEditingProduct({...(editingProduct || {} as Product), is_installment_available: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm">
+                  <Percent className="h-3 w-3 inline mr-1" />
+                  Рассрочка 0%
+                </span>
+              </label>
+            </div>
+          </Card>
+
+          <Button 
+            onClick={async () => {
+              if (!editingProduct?.name || !editingProduct?.part_number || !editingProduct?.price_rub) {
+                alert('Заполните обязательные поля: Название, Артикул, Цена')
+                return
+              }
+              
+              setSaving(true)
+              try {
+                const res = await fetch(`${API_URL}/products/`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: editingProduct.name,
+                    part_number: editingProduct.part_number,
+                    price_rub: editingProduct.price_rub,
+                    stock_quantity: editingProduct.stock_quantity || 0,
+                    category_id: editingProduct.category_id || 1,
+                    image_url: editingProduct.image_url,
+                    is_in_stock: editingProduct.is_in_stock || false,
+                    is_installment_available: editingProduct.is_installment_available || false,
+                    description: '',
+                    manufacturer: ''
+                  })
+                })
+                
+                if (res.ok) {
+                  alert('✅ Товар успешно создан!')
+                  setEditingProduct(null)
+                  setView('dashboard')
+                } else {
+                  const error = await res.json()
+                  alert('❌ Ошибка: ' + (error.detail || 'Не удалось создать товар'))
+                }
+              } catch (err) {
+                alert('❌ Ошибка создания товара')
+                console.error(err)
+              } finally {
+                setSaving(false)
+              }
+            }}
+            disabled={saving} 
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {saving ? "Создание..." : "✨ Создать товар"}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // Search view
   if (view === 'search') {
     return (
@@ -1426,6 +1641,24 @@ function AdminContent() {
               <div>
                 <p className="font-bold text-lg">Поиск товаров</p>
                 <p className="text-xs text-muted-foreground">Редактирование цен, фото, остатков</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20 p-4 cursor-pointer hover:from-green-500/20 hover:to-green-600/10 transition-all group active:scale-[0.98]"
+          onClick={() => setView('create')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/30 to-green-600/20 border border-green-500/30 shadow-lg shadow-green-500/20">
+                <Plus className="h-6 w-6 text-green-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">✨ Добавить товар</p>
+                <p className="text-xs text-muted-foreground">Создать новый товар</p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
