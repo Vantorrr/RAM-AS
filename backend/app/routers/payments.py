@@ -716,6 +716,9 @@ async def create_tbank_payment(
     amount_kopecks = int(order.total_amount * 100)  # в копейках!
     order_id = f"order_{order.id}_{int(datetime.now().timestamp())}"
     
+    print(f"🔑 TBANK_TERMINAL_KEY: {TBANK_TERMINAL_KEY}")
+    print(f"🔑 TBANK_PASSWORD: {TBANK_PASSWORD[:5]}...{TBANK_PASSWORD[-5:]}")
+    
     # Параметры для токена (по документации T-Bank - БЕЗ Description!)
     token_params = {
         "Amount": amount_kopecks,
