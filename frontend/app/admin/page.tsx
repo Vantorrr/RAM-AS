@@ -1252,13 +1252,6 @@ function AdminContent() {
 
   // Create view
   if (view === 'create') {
-    // Загружаем категории если еще не загружены
-    useEffect(() => {
-      if (categories.length === 0) {
-        loadCategories()
-      }
-    }, [])
-    
     return (
       <div className="h-full overflow-y-auto bg-background text-foreground p-4">
         <div className="flex items-center gap-3 mb-6">
@@ -1649,7 +1642,29 @@ function AdminContent() {
 
         <Card 
           className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20 p-4 cursor-pointer hover:from-green-500/20 hover:to-green-600/10 transition-all group active:scale-[0.98]"
-          onClick={() => setView('create')}
+          onClick={() => { 
+            // Инициализируем пустой товар для создания
+            setEditingProduct({
+              id: 0,
+              name: '',
+              part_number: '',
+              description: null,
+              manufacturer: null,
+              price_rub: 0,
+              price_usd: 0,
+              is_in_stock: true,
+              stock_quantity: 0,
+              image_url: null,
+              is_preorder: false,
+              is_installment_available: false,
+              category_id: 1,
+              category: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }); 
+            if (categories.length === 0) loadCategories(); 
+            setView('create'); 
+          }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
