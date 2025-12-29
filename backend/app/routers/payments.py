@@ -813,16 +813,114 @@ async def tbank_notification(
         
         status = body.get("Status")
         order_id_str = body.get("OrderId", "")
-        
-        # Извлекаем ID заказа из OrderId (order_123_timestamp)
-        try:
-            order_id = int(order_id_str.split("_")[1])
-        except:
-            print(f"❌ Cannot parse order_id from: {order_id_str}")
-            return {"status": "error", "message": "Invalid OrderId"}
+        data = body.get("DATA", {})
+        payment_type = data.get("type", "order")  # order, subscription, listing
         
         # Обрабатываем успешную оплату
         if status == "CONFIRMED":
+            
+            # === ОПЛАТА ПОДПИСКИ ===
+            if payment_type == "subscription" or order_id_str.startswith("sub_"):
+                seller_id = int(data.get("seller_id", order_id_str.split("_")[1]))
+                tier = data.get("tier", order_id_str.split("_")[2])
+                
+                result = await db.execute(
+                    select(models.Seller).where(models.Seller.id == seller_id)
+                )
+                seller = result.scalar_one_or_none()
+                
+                if seller:
+                    # Обновляем подписку
+                    seller.subscription_tier = tier
+                    seller.subscription_expires = datetime.now() + timedelta(days=30)
+                    seller.max_products = SUBSCRIPTION_LIMITS[tier]
+                    
+                    # Создаем запись о подписке
+                    subscription = models.Subscription(
+                        seller_id=seller_id,
+                        tier=tier,
+                        price_paid=SUBSCRIPTION_PRICES[tier],
+                        started_at=datetime.now(),
+                        expires_at=datetime.now() + timedelta(days=30),
+                        is_active=True,
+                        payment_id=body.get("PaymentId")
+                    )
+                    db.add(subscription)
+                    await db.commit()
+                    
+                    # Уведомляем партнера
+                    try:
+                        await bot.send_message(
+                            chat_id=seller.telegram_id,
+                            text=f"✅ <b>Подписка оплачена!</b>\n\n"
+                                 f"📦 Тариф: {tier.upper()}\n"
+                                 f"💰 Сумма: {SUBSCRIPTION_PRICES[tier]:,.0f} ₽\n"
+                                 f"📅 Действует до: {seller.subscription_expires.strftime('%d.%m.%Y')}\n"
+                                 f"📦 Лимит товаров: {SUBSCRIPTION_LIMITS[tier]}\n\n"
+                                 f"Спасибо! 🙏",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        print(f"❌ Failed to notify seller: {e}")
+                    
+                    print(f"✅ Subscription {tier} activated for seller {seller_id}")
+                    return {"status": "ok"}
+            
+            # === ОПЛАТА БАРАХОЛКИ ===
+            elif payment_type == "listing" or order_id_str.startswith("listing_"):
+                listing_id = int(data.get("listing_id", order_id_str.split("_")[1]))
+                
+                result = await db.execute(
+                    select(models.Listing).where(models.Listing.id == listing_id)
+                )
+                listing = result.scalar_one_or_none()
+                
+                if listing:
+                    # Публикуем объявление
+                    listing.status = "pending"  # На модерацию
+                    listing.payment_id = body.get("PaymentId")
+                    await db.commit()
+                    
+                    # Уведомляем продавца
+                    try:
+                        await bot.send_message(
+                            chat_id=listing.seller_telegram_id,
+                            text=f"✅ <b>Объявление оплачено!</b>\n\n"
+                                 f"📦 {listing.title}\n"
+                                 f"💰 50 ₽\n\n"
+                                 f"Ваше объявление отправлено на модерацию.\n"
+                                 f"Мы проверим его и опубликуем в течение 24 часов. 🙏",
+                            parse_mode="HTML"
+                        )
+                    except Exception as e:
+                        print(f"❌ Failed to notify seller: {e}")
+                    
+                    # Уведомляем админов
+                    try:
+                        for admin_id in ADMIN_CHAT_IDS:
+                            await bot.send_message(
+                                chat_id=admin_id,
+                                text=f"📢 <b>НОВОЕ ОБЪЯВЛЕНИЕ НА МОДЕРАЦИЮ!</b>\n\n"
+                                     f"📦 {listing.title}\n"
+                                     f"💰 {listing.price:,.0f} ₽\n"
+                                     f"👤 {listing.seller_name}\n\n"
+                                     f"Проверьте в админке: /admin",
+                                parse_mode="HTML"
+                            )
+                    except Exception as e:
+                        print(f"❌ Failed to notify admins: {e}")
+                    
+                    print(f"✅ Listing {listing_id} sent to moderation")
+                    return {"status": "ok"}
+            
+            # === ОПЛАТА ЗАКАЗА ===
+            else:
+                # Извлекаем ID заказа из OrderId (order_123_timestamp)
+                try:
+                    order_id = int(order_id_str.split("_")[1])
+                except:
+                    print(f"❌ Cannot parse order_id from: {order_id_str}")
+                    return {"status": "error", "message": "Invalid OrderId"}
             result = await db.execute(
                 select(models.Order)
                 .where(models.Order.id == order_id)
@@ -917,5 +1015,182 @@ async def get_subscription_plans():
                 "description": "Безлимитный план"
             }
         ]
+    }
+
+
+# === T-BANK: ОПЛАТА ПОДПИСОК ПАРТНЕРОВ ===
+
+class SubscriptionPaymentRequest(BaseModel):
+    seller_id: int
+    tier: str  # start, pro, magnate
+
+
+@router.post("/tbank/subscription/init")
+async def init_subscription_payment(
+    request: SubscriptionPaymentRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Создает платеж для оплаты подписки партнера через T-Bank
+    """
+    # Проверяем продавца
+    result = await db.execute(
+        select(models.Seller).where(models.Seller.id == request.seller_id)
+    )
+    seller = result.scalar_one_or_none()
+    
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    
+    # Проверяем тариф
+    if request.tier not in SUBSCRIPTION_PRICES:
+        raise HTTPException(status_code=400, detail="Invalid subscription tier")
+    
+    price = SUBSCRIPTION_PRICES[request.tier]
+    amount_kopecks = int(price * 100)
+    order_id = f"sub_{seller.id}_{request.tier}_{int(datetime.now().timestamp())}"
+    description = f"Subscription {request.tier}"
+    
+    # Параметры для токена
+    token_params = {
+        "Amount": amount_kopecks,
+        "Description": description,
+        "OrderId": order_id,
+        "TerminalKey": TBANK_TERMINAL_KEY
+    }
+    
+    # Генерируем токен
+    token = calculate_tbank_token(token_params, TBANK_PASSWORD)
+    
+    # Полные параметры запроса
+    params = {
+        "TerminalKey": TBANK_TERMINAL_KEY,
+        "Amount": amount_kopecks,
+        "OrderId": order_id,
+        "Description": description,
+        "Token": token,
+        "DATA": {
+            "type": "subscription",
+            "seller_id": str(seller.id),
+            "tier": request.tier
+        }
+    }
+    
+    # Отправляем запрос в T-Bank
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{TBANK_API_URL}/Init",
+            json=params,
+            timeout=30.0
+        )
+        
+        if response.status_code != 200:
+            print(f"❌ T-Bank API Error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"T-Bank API Error: {response.text}"
+            )
+        
+        result = response.json()
+        
+        if not result.get("Success"):
+            error_message = result.get("Message", "Unknown error")
+            raise HTTPException(status_code=400, detail=f"T-Bank Error: {error_message}")
+        
+        payment_url = result.get("PaymentURL")
+        
+        if not payment_url:
+            raise HTTPException(status_code=500, detail="Invalid T-Bank response")
+    
+    return {
+        "payment_url": payment_url,
+        "amount": price,
+        "tier": request.tier
+    }
+
+
+# === T-BANK: ОПЛАТА ОБЪЯВЛЕНИЙ БАРАХОЛКИ ===
+
+class ListingPaymentRequest(BaseModel):
+    listing_id: int
+
+
+@router.post("/tbank/listing/init")
+async def init_listing_payment(
+    request: ListingPaymentRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Создает платеж для публикации объявления в барахолке через T-Bank
+    """
+    # Проверяем объявление
+    result = await db.execute(
+        select(models.Listing).where(models.Listing.id == request.listing_id)
+    )
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    # Цена публикации - 50 рублей
+    listing_price = 50.0
+    amount_kopecks = int(listing_price * 100)
+    order_id = f"listing_{listing.id}_{int(datetime.now().timestamp())}"
+    description = f"Listing {listing.id}"
+    
+    # Параметры для токена
+    token_params = {
+        "Amount": amount_kopecks,
+        "Description": description,
+        "OrderId": order_id,
+        "TerminalKey": TBANK_TERMINAL_KEY
+    }
+    
+    # Генерируем токен
+    token = calculate_tbank_token(token_params, TBANK_PASSWORD)
+    
+    # Полные параметры запроса
+    params = {
+        "TerminalKey": TBANK_TERMINAL_KEY,
+        "Amount": amount_kopecks,
+        "OrderId": order_id,
+        "Description": description,
+        "Token": token,
+        "DATA": {
+            "type": "listing",
+            "listing_id": str(listing.id)
+        }
+    }
+    
+    # Отправляем запрос в T-Bank
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{TBANK_API_URL}/Init",
+            json=params,
+            timeout=30.0
+        )
+        
+        if response.status_code != 200:
+            print(f"❌ T-Bank API Error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"T-Bank API Error: {response.text}"
+            )
+        
+        result = response.json()
+        
+        if not result.get("Success"):
+            error_message = result.get("Message", "Unknown error")
+            raise HTTPException(status_code=400, detail=f"T-Bank Error: {error_message}")
+        
+        payment_url = result.get("PaymentURL")
+        
+        if not payment_url:
+            raise HTTPException(status_code=500, detail="Invalid T-Bank response")
+    
+    return {
+        "payment_url": payment_url,
+        "amount": listing_price,
+        "listing_id": listing.id
     }
 

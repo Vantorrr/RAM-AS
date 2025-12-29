@@ -154,3 +154,22 @@
     filter: drop-shadow(0 0 40px rgba(211, 47, 47, 0.7));
   }
 }
+
+/* Copy Protection */
+@layer base {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Разрешаем выделение в инпутах */
+  input, textarea {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+}
