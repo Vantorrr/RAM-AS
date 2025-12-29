@@ -1,6 +1,7 @@
 """
-PayMaster Payment Integration
-API v2 Documentation: https://paymaster.ru/docs/ru/api
+Payment Integration: PayMaster & T-Bank
+- PayMaster API v2: https://paymaster.ru/docs/ru/api
+- T-Bank API v2: https://www.tbank.ru/kassa/develop/api/
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
@@ -33,6 +34,14 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "https://alert-joy-production.up.railwa
 # Проверка конфигурации при старте
 if not PAYMASTER_MERCHANT_ID or not PAYMASTER_BEARER_TOKEN:
     print("⚠️ WARNING: PAYMASTER_MERCHANT_ID or PAYMASTER_BEARER_TOKEN not set!")
+
+# T-Bank Configuration
+TBANK_TERMINAL_KEY = os.getenv("TBANK_TERMINAL_KEY", "1766825321707DEMO")
+TBANK_PASSWORD = os.getenv("TBANK_PASSWORD", "TsL$L%z&1KvjIwDX")
+TBANK_API_URL = "https://securepay.tinkoff.ru/v2"
+
+if not TBANK_TERMINAL_KEY or not TBANK_PASSWORD:
+    print("⚠️ WARNING: TBANK_TERMINAL_KEY or TBANK_PASSWORD not set!")
 
 # Subscription Plans Pricing (in RUB)
 SUBSCRIPTION_PRICES = {
@@ -642,6 +651,230 @@ async def paymaster_webhook(
     
     except Exception as e:
         print(f"❌ Webhook Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+# === T-BANK PAYMENT INTEGRATION ===
+
+def calculate_tbank_token(params: dict, password: str) -> str:
+    """
+    Генерирует токен для T-Bank API
+    Token = SHA-256(параметры + Password)
+    """
+    # Сортируем параметры по ключу и конкатенируем значения
+    sorted_params = sorted(params.items())
+    values = [str(v) for k, v in sorted_params if k != "Token"]
+    values.append(password)
+    
+    # SHA-256
+    concatenated = "".join(values)
+    token = hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
+    return token
+
+
+class TBankPaymentRequest(BaseModel):
+    order_id: int
+
+
+class TBankPaymentResponse(BaseModel):
+    payment_id: str
+    payment_url: str
+    amount: float
+
+
+@router.post("/tbank/init", response_model=TBankPaymentResponse)
+async def create_tbank_payment(
+    request: TBankPaymentRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Создаёт платеж через T-Bank эквайринг
+    """
+    
+    # Получаем заказ
+    result = await db.execute(
+        select(models.Order).where(models.Order.id == request.order_id)
+    )
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Формируем параметры для T-Bank API
+    amount_kopecks = int(order.total_amount * 100)  # в копейках!
+    
+    params = {
+        "TerminalKey": TBANK_TERMINAL_KEY,
+        "Amount": amount_kopecks,
+        "OrderId": f"order_{order.id}_{int(datetime.now().timestamp())}",
+        "Description": f"Оплата заказа #{order.id} — RAM-US Auto Parts",
+        "DATA": {
+            "order_id": str(order.id),
+            "Email": "support@ram-us.ru"  # Email для чека
+        },
+        "Receipt": {
+            "Email": "support@ram-us.ru",
+            "Taxation": "osn",
+            "Items": [{
+                "Name": "Автозапчасти",
+                "Price": amount_kopecks,
+                "Quantity": 1,
+                "Amount": amount_kopecks,
+                "Tax": "none"
+            }]
+        }
+    }
+    
+    # Генерируем токен
+    token_params = {
+        "TerminalKey": TBANK_TERMINAL_KEY,
+        "Amount": amount_kopecks,
+        "OrderId": params["OrderId"],
+        "Description": params["Description"]
+    }
+    params["Token"] = calculate_tbank_token(token_params, TBANK_PASSWORD)
+    
+    # Отправляем запрос в T-Bank
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{TBANK_API_URL}/Init",
+            json=params,
+            timeout=30.0
+        )
+        
+        if response.status_code != 200:
+            print(f"❌ T-Bank API Error: {response.status_code} - {response.text}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"T-Bank API Error: {response.text}"
+            )
+        
+        result = response.json()
+        print(f"✅ T-Bank Response: {json.dumps(result, indent=2, ensure_ascii=False)}")
+        
+        # Проверяем ответ
+        if not result.get("Success"):
+            error_code = result.get("ErrorCode", "Unknown")
+            error_message = result.get("Message", "Unknown error")
+            print(f"❌ T-Bank Error: {error_code} - {error_message}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"T-Bank Error: {error_message}"
+            )
+        
+        payment_id = result.get("PaymentId")
+        payment_url = result.get("PaymentURL")
+        
+        if not payment_id or not payment_url:
+            print(f"❌ Missing PaymentId or PaymentURL in response: {result}")
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid T-Bank response"
+            )
+    
+    return TBankPaymentResponse(
+        payment_id=str(payment_id),
+        payment_url=payment_url,
+        amount=order.total_amount
+    )
+
+
+@router.post("/tbank/notification")
+async def tbank_notification(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Webhook для обработки уведомлений от T-Bank
+    """
+    
+    try:
+        body = await request.json()
+        print(f"📥 T-Bank Notification: {json.dumps(body, indent=2, ensure_ascii=False)}")
+        
+        # Проверяем токен
+        received_token = body.get("Token")
+        params_for_token = {k: v for k, v in body.items() if k != "Token"}
+        expected_token = calculate_tbank_token(params_for_token, TBANK_PASSWORD)
+        
+        if received_token != expected_token:
+            print("❌ Invalid token in T-Bank notification!")
+            return {"status": "error", "message": "Invalid token"}
+        
+        status = body.get("Status")
+        order_id_str = body.get("OrderId", "")
+        
+        # Извлекаем ID заказа из OrderId (order_123_timestamp)
+        try:
+            order_id = int(order_id_str.split("_")[1])
+        except:
+            print(f"❌ Cannot parse order_id from: {order_id_str}")
+            return {"status": "error", "message": "Invalid OrderId"}
+        
+        # Обрабатываем успешную оплату
+        if status == "CONFIRMED":
+            result = await db.execute(
+                select(models.Order)
+                .where(models.Order.id == order_id)
+                .options(selectinload(models.Order.items))
+            )
+            order = result.scalar_one_or_none()
+            
+            if order:
+                # Сохраняем данные
+                order_data = {
+                    "id": order.id,
+                    "user_name": order.user_name,
+                    "user_phone": order.user_phone,
+                    "user_telegram_id": order.user_telegram_id,
+                    "total_amount": order.total_amount,
+                    "delivery_address": order.delivery_address
+                }
+                
+                order.status = "paid"
+                await db.commit()
+                
+                # Уведомляем пользователя
+                try:
+                    await bot.send_message(
+                        chat_id=order_data["user_telegram_id"],
+                        text=f"✅ <b>Оплата подтверждена!</b>\n\n"
+                             f"📦 Заказ #{order_data['id']}\n"
+                             f"💰 Сумма: {order_data['total_amount']:,.0f} ₽\n\n"
+                             f"Спасибо за покупку! 🙏",
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    print(f"❌ Failed to notify user: {e}")
+                
+                # Уведомляем админов
+                try:
+                    for admin_id in ADMIN_CHAT_IDS:
+                        await bot.send_message(
+                            chat_id=admin_id,
+                            text=f"🎉 <b>НОВЫЙ ОПЛАЧЕННЫЙ ЗАКАЗ (T-Bank)!</b>\n\n"
+                                 f"📦 Заказ #{order_data['id']}\n"
+                                 f"👤 {order_data['user_name']} ({order_data['user_phone']})\n"
+                                 f"💰 {order_data['total_amount']:,.0f} ₽",
+                            parse_mode="HTML"
+                        )
+                except Exception as e:
+                    print(f"❌ Failed to notify admins: {e}")
+                
+                print(f"✅ Order {order_id} marked as paid (T-Bank)")
+                return {"status": "ok"}
+            else:
+                print(f"❌ Order {order_id} not found")
+                return {"status": "error", "message": "Order not found"}
+        
+        elif status in ["CANCELED", "REJECTED"]:
+            print(f"⚠️ T-Bank payment for order {order_id} failed with status: {status}")
+            return {"status": "ok"}
+        
+        return {"status": "ok"}
+    
+    except Exception as e:
+        print(f"❌ T-Bank Webhook Error: {e}")
         return {"status": "error", "message": str(e)}
 
 
