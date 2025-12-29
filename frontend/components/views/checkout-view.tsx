@@ -64,7 +64,6 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
   const { items, getTotalPrice, clearCart } = useCartStore()
   const [loading, setLoading] = useState(false)
   const [deliveryType, setDeliveryType] = useState<'cdek_pvz' | 'cdek_door' | 'pickup'>('cdek_pvz')
-  const [paymentMethod, setPaymentMethod] = useState<'tbank' | 'paymaster'>('tbank')
   
   // Форма
   const [formData, setFormData] = useState({
@@ -255,17 +254,12 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
 
       const order = await response.json()
 
-      // Создаем invoice в зависимости от выбранного способа оплаты
-      const paymentEndpoint = paymentMethod === 'tbank' 
-        ? `${API_URL}/payments/tbank/init`
-        : `${API_URL}/payments/create-order-invoice`
-      
-      const paymentResponse = await fetch(paymentEndpoint, {
+      // Создаем оплату через T-Bank
+      const paymentResponse = await fetch(`${API_URL}/payments/tbank/init`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          order_id: order.id,
-          amount: totalWithDelivery // Включая доставку!
+          order_id: order.id
         })
       })
 
@@ -556,54 +550,15 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
         </div>
 
         {/* Оплата */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
-              <span className="text-sm font-bold">3</span>
-            </div>
-            <h3 className="font-semibold">Способ оплаты</h3>
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Оплата онлайн</h3>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Card
-              className={cn(
-                "p-4 cursor-pointer transition-all",
-                paymentMethod === 'tbank'
-                  ? "bg-primary/20 border-primary"
-                  : "bg-white/5 border-white/10 hover:bg-white/10"
-              )}
-              onClick={() => setPaymentMethod('tbank')}
-            >
-              <div className="flex flex-col items-center gap-2 text-center">
-                <CreditCard className="h-6 w-6" />
-                <span className="font-semibold text-sm">T-Bank</span>
-                <span className="text-xs text-muted-foreground">СБП, карты</span>
-              </div>
-            </Card>
-
-            <Card
-              className={cn(
-                "p-4 cursor-pointer transition-all",
-                paymentMethod === 'paymaster'
-                  ? "bg-primary/20 border-primary"
-                  : "bg-white/5 border-white/10 hover:bg-white/10"
-              )}
-              onClick={() => setPaymentMethod('paymaster')}
-            >
-              <div className="flex flex-col items-center gap-2 text-center">
-                <CreditCard className="h-6 w-6" />
-                <span className="font-semibold text-sm">PayMaster</span>
-                <span className="text-xs text-muted-foreground">Карты РФ</span>
-              </div>
-            </Card>
-          </div>
-
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 p-3">
-            <p className="text-sm text-muted-foreground">
-              После нажатия кнопки вы перейдёте на страницу оплаты {paymentMethod === 'tbank' ? 'T-Bank' : 'PayMaster'}
-            </p>
-          </Card>
-        </div>
+          <p className="text-sm text-muted-foreground">
+            После нажатия кнопки вы перейдёте на безопасную страницу оплаты T-Bank. Принимаем карты и СБП.
+          </p>
+        </Card>
 
         <Button 
           type="submit" 
