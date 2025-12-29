@@ -660,15 +660,28 @@ def calculate_tbank_token(params: dict, password: str) -> str:
     """
     Генерирует токен для T-Bank API
     Token = SHA-256(параметры + Password)
-    """
-    # Сортируем параметры по ключу и конкатенируем значения
-    sorted_params = sorted(params.items())
-    values = [str(v) for k, v in sorted_params if k != "Token"]
-    values.append(password)
     
-    # SHA-256
+    Алгоритм:
+    1. Добавить Password в параметры
+    2. Отсортировать по ключу
+    3. Конкатенировать значения
+    4. SHA-256
+    """
+    # Копируем параметры и добавляем Password
+    token_params = params.copy()
+    token_params["Password"] = password
+    
+    # Сортируем по ключу и конкатенируем значения
+    sorted_keys = sorted(token_params.keys())
+    values = [str(token_params[k]) for k in sorted_keys]
+    
     concatenated = "".join(values)
     token = hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
+    
+    print(f"🔐 Token params: {sorted_keys}")
+    print(f"🔐 Token string: {concatenated}")
+    print(f"🔐 Token hash: {token}")
+    
     return token
 
 
@@ -702,37 +715,30 @@ async def create_tbank_payment(
     
     # Формируем параметры для T-Bank API
     amount_kopecks = int(order.total_amount * 100)  # в копейках!
+    order_id = f"order_{order.id}_{int(datetime.now().timestamp())}"
     
-    params = {
-        "TerminalKey": TBANK_TERMINAL_KEY,
+    # Параметры для токена (только те, что участвуют в токене)
+    token_params = {
         "Amount": amount_kopecks,
-        "OrderId": f"order_{order.id}_{int(datetime.now().timestamp())}",
-        "Description": f"Оплата заказа #{order.id} — RAM-US Auto Parts",
-        "DATA": {
-            "order_id": str(order.id),
-            "Email": "support@ram-us.ru"  # Email для чека
-        },
-        "Receipt": {
-            "Email": "support@ram-us.ru",
-            "Taxation": "osn",
-            "Items": [{
-                "Name": "Автозапчасти",
-                "Price": amount_kopecks,
-                "Quantity": 1,
-                "Amount": amount_kopecks,
-                "Tax": "none"
-            }]
-        }
+        "Description": f"Оплата заказа #{order.id}",
+        "OrderId": order_id,
+        "TerminalKey": TBANK_TERMINAL_KEY
     }
     
     # Генерируем токен
-    token_params = {
+    token = calculate_tbank_token(token_params, TBANK_PASSWORD)
+    
+    # Полные параметры запроса
+    params = {
         "TerminalKey": TBANK_TERMINAL_KEY,
         "Amount": amount_kopecks,
-        "OrderId": params["OrderId"],
-        "Description": params["Description"]
+        "OrderId": order_id,
+        "Description": token_params["Description"],
+        "Token": token,
+        "DATA": {
+            "order_id": str(order.id)
+        }
     }
-    params["Token"] = calculate_tbank_token(token_params, TBANK_PASSWORD)
     
     # Отправляем запрос в T-Bank
     async with httpx.AsyncClient() as client:
