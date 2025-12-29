@@ -823,7 +823,7 @@ async def tbank_notification(
                             chat_id=listing.seller_telegram_id,
                             text=f"✅ <b>Объявление оплачено!</b>\n\n"
                                  f"📦 {listing.title}\n"
-                                 f"💰 50 ₽\n\n"
+                                 f"💰 {LISTING_PRICE} ₽\n\n"
                                  f"Ваше объявление отправлено на модерацию.\n"
                                  f"Мы проверим его и опубликуем в течение 24 часов. 🙏",
                             parse_mode="HTML"
@@ -1068,8 +1068,8 @@ async def init_listing_payment(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    # Цена публикации - 50 рублей
-    listing_price = 50.0
+    # Цена публикации - 200 рублей
+    listing_price = LISTING_PRICE
     amount_kopecks = int(listing_price * 100)
     order_id = f"listing_{listing.id}_{int(datetime.now().timestamp())}"
     description = f"Listing {listing.id}"
