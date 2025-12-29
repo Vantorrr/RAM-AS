@@ -346,9 +346,21 @@ class ListingAdmin(ModelView, model=models.Listing):
     }
 
 # SQLAdmin setup (используем SYNC engine, т.к. sqladmin не поддерживает async полностью)
+import os
+from pathlib import Path
+
+admin_templates_dir = Path(__file__).parent / "admin_templates"
 print(f"🔧 Setting up SQLAdmin...")
 print(f"🔧 Sync Engine: {sync_engine}")
-admin = Admin(app, sync_engine)
+print(f"🎨 Templates dir: {admin_templates_dir}")
+
+admin = Admin(
+    app, 
+    sync_engine,
+    title="RAM-US Admin 🚗",
+    logo_url="https://em-content.zobj.net/source/apple/391/pickup-truck_1f6fb.png",
+    templates_dir=str(admin_templates_dir) if admin_templates_dir.exists() else None
+)
 print(f"🔧 Admin created, adding views...")
 admin.add_view(ProductAdmin)
 print(f"✅ Added ProductAdmin")
