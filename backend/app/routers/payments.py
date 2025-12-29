@@ -35,9 +35,9 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "https://alert-joy-production.up.railwa
 if not PAYMASTER_MERCHANT_ID or not PAYMASTER_BEARER_TOKEN:
     print("⚠️ WARNING: PAYMASTER_MERCHANT_ID or PAYMASTER_BEARER_TOKEN not set!")
 
-# T-Bank Configuration (TEST - working)
-TBANK_TERMINAL_KEY = os.getenv("TBANK_TERMINAL_KEY", "1766825321707DEMO")
-TBANK_PASSWORD = os.getenv("TBANK_PASSWORD", "TsL$L%z&1KvjIwDX")
+# T-Bank Configuration (PRODUCTION)
+TBANK_TERMINAL_KEY = os.getenv("TBANK_TERMINAL_KEY", "1766825321741")
+TBANK_PASSWORD = os.getenv("TBANK_PASSWORD", "0W0qq&IxbbRu*LeL")
 TBANK_API_URL = "https://securepay.tinkoff.ru/v2"
 
 if not TBANK_TERMINAL_KEY or not TBANK_PASSWORD:
@@ -739,12 +739,18 @@ async def create_tbank_payment(
     }
     
     # Отправляем запрос в T-Bank
+    print(f"📤 T-Bank Request URL: {TBANK_API_URL}/Init")
+    print(f"📤 T-Bank Request Params: {json.dumps(params, indent=2, ensure_ascii=False)}")
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{TBANK_API_URL}/Init",
             json=params,
             timeout=30.0
         )
+        
+        print(f"📥 T-Bank Response Status: {response.status_code}")
+        print(f"📥 T-Bank Response Body: {response.text}")
         
         if response.status_code != 200:
             print(f"❌ T-Bank API Error: {response.status_code} - {response.text}")
