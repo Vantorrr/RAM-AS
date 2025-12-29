@@ -729,16 +729,13 @@ async def create_tbank_payment(
     # Генерируем токен
     token = calculate_tbank_token(token_params, TBANK_PASSWORD)
     
-    # Полные параметры запроса
+    # Полные параметры запроса (БЕЗ DATA для теста)
     params = {
         "TerminalKey": TBANK_TERMINAL_KEY,
         "Amount": amount_kopecks,
         "OrderId": order_id,
         "Description": f"Оплата заказа #{order.id}",
-        "Token": token,
-        "DATA": {
-            "order_id": str(order.id)
-        }
+        "Token": token
     }
     
     # Отправляем запрос в T-Bank
