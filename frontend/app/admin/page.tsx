@@ -267,7 +267,8 @@ function AdminContent() {
     if (!showcaseSearchQuery.trim()) return
     setShowcaseSearching(true)
     try {
-      const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(showcaseSearchQuery)}&limit=20`)
+      // Увеличили лимит до 50 для поиска витрины
+      const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(showcaseSearchQuery)}&limit=50`)
       if (res.ok) {
         const data = await res.json()
         setShowcaseSearchResults(data)
@@ -469,7 +470,8 @@ function AdminContent() {
     if (!query.trim()) return
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(query)}&limit=20`)
+      // Увеличили лимит до 100 для поиска
+      const res = await fetch(`${API_URL}/products/?search=${encodeURIComponent(query)}&limit=100`)
       const data = await res.json()
       setProducts(data)
     } catch (err) {
