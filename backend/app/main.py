@@ -588,6 +588,12 @@ async def update_product(
     db: AsyncSession = Depends(database.get_db)
 ):
     """Обновить товар"""
+    # Проверяем дубликат part_number (если меняется)
+    if product_update.part_number:
+        existing = await crud.get_product_by_part_number(db, part_number=product_update.part_number)
+        if existing and existing.id != product_id:
+            raise HTTPException(status_code=400, detail="Product with this part number already exists")
+    
     db_product = await crud.update_product(db, product_id, product_update)
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")

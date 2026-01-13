@@ -282,11 +282,22 @@ function AdminContent() {
 
   // Showcase: добавить товар на витрину
   const addToShowcase = useCallback(async (productId: number) => {
+    // Проверяем, нет ли уже этого товара на витрине
+    if (showcaseProducts.find(p => p.id === productId)) {
+      alert('⚠️ Товар уже на витрине!')
+      return
+    }
+    
     try {
+      // Используем максимальный display_order + 1 для правильной сортировки
+      const maxOrder = showcaseProducts.length > 0 
+        ? Math.max(...showcaseProducts.map(p => p.display_order || 0)) 
+        : -1
+      
       const res = await fetch(`${API_URL}/api/admin/showcase/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: productId, is_featured: true, display_order: showcaseProducts.length })
+        body: JSON.stringify({ product_id: productId, is_featured: true, display_order: maxOrder + 1 })
       })
       if (res.ok) {
         loadShowcase()
@@ -299,7 +310,7 @@ function AdminContent() {
     } catch (e) {
       alert('❌ Ошибка сети')
     }
-  }, [showcaseProducts.length, loadShowcase])
+  }, [showcaseProducts, loadShowcase])
 
   // Showcase: убрать товар с витрины
   const removeFromShowcase = useCallback(async (productId: number) => {
@@ -561,11 +572,12 @@ function AdminContent() {
         loadDashboard()  // Обновляем dashboard!
         setView('dashboard')
       } else {
-        const err = await res.text()
-        alert("❌ Ошибка сохранения: " + err)
+        const error = await res.json()
+        alert("❌ Ошибка сохранения: " + (error.detail || 'Неизвестная ошибка'))
       }
     } catch (err) {
       alert("❌ Ошибка сети")
+      console.error(err)
     } finally {
       setSaving(false)
     }
