@@ -661,9 +661,11 @@ async def read_products(
     elif (vehicle_make or vehicle_model) and links_count == 0:
         print(f"⚠️ AI еще не отработал (0 связей), показываем ВСЕ товары")
     
-    # Категории (пока временно показываем из склада)
-    if category_id and category_id != 50:
-        query = query.where(models.Product.category_id == 50)
+    # Фильтр по категориям (включая подкатегории)
+    if category_id:
+        # Получаем ID категории и всех её подкатегорий
+        all_category_ids = await get_all_subcategory_ids(db, category_id)
+        query = query.where(models.Product.category_id.in_(all_category_ids))
     
     if search:
         search_filter = f"%{search}%"
@@ -754,9 +756,11 @@ async def get_products_count(
         # Без фильтра по авто - обычный count
         query = select(func.count(models.Product.id)).select_from(models.Product)
     
-    # ВРЕМЕННО: все категории показывают товары из склада (50)
-    if category_id and category_id != 50:
-        query = query.where(models.Product.category_id == 50)
+    # ВРЕМЕННО: все категории показывают товары из склада (50)    
+    # Фильтр по категориям (включая подкатегории)
+    if category_id:
+        all_category_ids = await get_all_subcategory_ids(db, category_id)
+        query = query.where(models.Product.category_id.in_(all_category_ids))
     
     if search:
         search_filter = f"%{search}%"
