@@ -412,7 +412,10 @@ function AdminContent() {
     try {
       const res = await fetch(`${API_URL}/api/admin/categories/${editingCat.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
         body: JSON.stringify({
           name: editingCat.name,
           slug: editingCat.slug,
