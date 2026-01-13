@@ -1186,6 +1186,8 @@ function AdminContent() {
               </label>
               <Input
                 type="number"
+                min="0"
+                step="0.01"
                 value={editingProduct.price_rub || ""}
                 onChange={e => setEditingProduct({...editingProduct, price_rub: parseFloat(e.target.value) || 0})}
                 className="bg-white/5 border-white/10"
@@ -1199,6 +1201,8 @@ function AdminContent() {
               </label>
               <Input
                 type="number"
+                min="0"
+                step="1"
                 value={editingProduct.stock_quantity || 0}
                 onChange={e => setEditingProduct({...editingProduct, stock_quantity: parseInt(e.target.value) || 0})}
                 className="bg-white/5 border-white/10"
@@ -1351,6 +1355,8 @@ function AdminContent() {
               </label>
               <Input
                 type="number"
+                min="0"
+                step="0.01"
                 value={editingProduct?.price_rub || ""}
                 onChange={e => setEditingProduct({...(editingProduct || {} as Product), price_rub: parseFloat(e.target.value) || 0})}
                 className="bg-white/5 border-white/10"
@@ -1365,6 +1371,8 @@ function AdminContent() {
               </label>
               <Input
                 type="number"
+                min="0"
+                step="1"
                 value={editingProduct?.stock_quantity || 0}
                 onChange={e => setEditingProduct({...(editingProduct || {} as Product), stock_quantity: parseInt(e.target.value) || 0})}
                 className="bg-white/5 border-white/10"
