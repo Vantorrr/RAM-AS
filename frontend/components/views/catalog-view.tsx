@@ -186,8 +186,13 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         setSelectedCategory(cat)
         setCurrentPage(0)
         
-        // Всегда загружаем товары категории (включая товары из подкатегорий)
-        fetchProducts(cat.id, undefined, 0, false)
+        // Загружаем товары ТОЛЬКО если нет подкатегорий
+        if (!cat.children || cat.children.length === 0) {
+            fetchProducts(cat.id, undefined, 0, false)
+        } else {
+            // Если есть подкатегории, очищаем товары
+            setProducts([])
+        }
     }
 
     // Handle search
@@ -270,7 +275,9 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
     // ============ RENDER ============
 
     // Products view (category selected or search mode)
-    if ((selectedCategory && products.length > 0) || (selectedCategory && loadingProducts) || isSearchMode) {
+    // НЕ показываем товары, если есть подкатегории!
+    const hasSubcategories = selectedCategory?.children && selectedCategory.children.length > 0
+    if ((!hasSubcategories && selectedCategory && products.length > 0) || (!hasSubcategories && selectedCategory && loadingProducts) || isSearchMode) {
         return (
             <div className="flex flex-col pb-24 min-h-screen">
                 {/* Header */}
