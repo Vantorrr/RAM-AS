@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect, Suspense } from "react"
+import { getTelegramUser } from "@/lib/telegram"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -107,6 +108,18 @@ function AdminContent() {
   const [showcaseSearchQuery, setShowcaseSearchQuery] = useState('')
   const [showcaseSearchResults, setShowcaseSearchResults] = useState<any[]>([])
   const [showcaseSearching, setShowcaseSearching] = useState(false)
+
+  // Helper для добавления Telegram User ID хедера к админским запросам
+  const getAdminHeaders = useCallback(() => {
+    const tgUser = getTelegramUser()
+    const headers: Record<string, string> = {}
+    
+    if (tgUser?.id) {
+      headers['X-Telegram-User-Id'] = String(tgUser.id)
+    }
+    
+    return headers
+  }, [])
 
   // Update view when URL changes
   useEffect(() => {
@@ -250,7 +263,9 @@ function AdminContent() {
   const loadShowcase = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/showcase`)
+      const res = await fetch(`${API_URL}/api/admin/showcase`, {
+        headers: getAdminHeaders()
+      })
       if (res.ok) {
         const data = await res.json()
         setShowcaseProducts(data)
@@ -260,7 +275,7 @@ function AdminContent() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [getAdminHeaders])
 
   // Showcase: поиск товаров для добавления
   const searchShowcaseProducts = useCallback(async () => {
@@ -296,7 +311,10 @@ function AdminContent() {
       
       const res = await fetch(`${API_URL}/api/admin/showcase/add`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
         body: JSON.stringify({ product_id: productId, is_featured: true, display_order: maxOrder + 1 })
       })
       if (res.ok) {
@@ -310,12 +328,15 @@ function AdminContent() {
     } catch (e) {
       alert('❌ Ошибка сети')
     }
-  }, [showcaseProducts, loadShowcase])
+  }, [showcaseProducts, loadShowcase, getAdminHeaders])
 
   // Showcase: убрать товар с витрины
   const removeFromShowcase = useCallback(async (productId: number) => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/showcase/${productId}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/showcase/${productId}`, { 
+        method: 'DELETE',
+        headers: getAdminHeaders()
+      })
       if (res.ok) {
         loadShowcase()
         alert('✅ Товар убран с витрины')
@@ -325,7 +346,7 @@ function AdminContent() {
     } catch (e) {
       alert('❌ Ошибка сети')
     }
-  }, [loadShowcase])
+  }, [loadShowcase, getAdminHeaders])
 
   // Categories: создать категорию
   const createCategory = useCallback(async () => {
@@ -337,7 +358,10 @@ function AdminContent() {
     try {
       const res = await fetch(`${API_URL}/api/admin/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
         body: JSON.stringify({
           name: newCatName,
           slug: newCatSlug,
@@ -359,13 +383,16 @@ function AdminContent() {
     } finally {
       setCatSaving(false)
     }
-  }, [newCatName, newCatSlug, newCatParent, loadCategories])
+  }, [newCatName, newCatSlug, newCatParent, loadCategories, getAdminHeaders])
 
   // Categories: удалить категорию
   const deleteCategory = useCallback(async (id: number) => {
     if (!confirm('Удалить категорию?')) return
     try {
-      const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { 
+        method: 'DELETE',
+        headers: getAdminHeaders()
+      })
       if (res.ok) {
         loadCategories()
         alert('✅ Категория удалена')

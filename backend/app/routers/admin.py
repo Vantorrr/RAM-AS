@@ -3,7 +3,8 @@ Admin API Router
 Управление категориями, витриной и настройками магазина
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import os
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -13,7 +14,25 @@ from pydantic import BaseModel
 from .. import models, schemas
 from ..database import get_db
 
-router = APIRouter(prefix="/api/admin", tags=["Admin"])
+# Список ID админов из переменной окружения
+ADMIN_CHAT_IDS = os.getenv("ADMIN_CHAT_IDS", "").split(",")
+ADMIN_CHAT_IDS = [x.strip() for x in ADMIN_CHAT_IDS if x.strip()]
+
+def verify_admin(x_telegram_user_id: Optional[str] = Header(None)):
+    """Проверка, что запрос от админа"""
+    if not x_telegram_user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized: Missing Telegram User ID")
+    
+    if x_telegram_user_id not in ADMIN_CHAT_IDS:
+        raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
+    
+    return x_telegram_user_id
+
+router = APIRouter(
+    prefix="/api/admin", 
+    tags=["Admin"],
+    dependencies=[Depends(verify_admin)]  # Защита всех роутов!
+)
 
 
 # ============ КАТЕГОРИИ ============
