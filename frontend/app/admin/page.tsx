@@ -18,6 +18,12 @@ import { useSearchParams } from "next/navigation"
 
 export const dynamic = 'force-dynamic'
 
+interface Category {
+  id: number
+  name: string
+  slug: string
+}
+
 interface Product {
   id: number
   name: string
@@ -28,6 +34,7 @@ interface Product {
   is_installment_available: boolean
   stock_quantity: number
   category_id: number
+  category?: Category | null  // Добавили информацию о категории!
 }
 
 interface Seller {
@@ -1541,6 +1548,9 @@ function AdminContent() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{product.name}</p>
                     <p className="text-xs text-muted-foreground">{product.part_number}</p>
+                    {product.category && (
+                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">📁 {product.category.name}</p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-sm">{product.price_rub?.toLocaleString()} ₽</p>
@@ -1829,6 +1839,9 @@ function AdminContent() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{product.name}</p>
                   <p className="text-xs text-muted-foreground font-mono">{product.part_number}</p>
+                  {product.category && (
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">📁 {product.category.name}</p>
+                  )}
                 </div>
                 <div className="text-right">
                     <p className="font-bold text-sm">{product.price_rub?.toLocaleString()} ₽</p>

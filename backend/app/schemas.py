@@ -83,6 +83,7 @@ class Product(ProductBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    category: Optional['Category'] = None  # Добавили информацию о категории!
     seller_id: Optional[int] = None
     seller: Optional['SellerPublic'] = None
     views_count: int = 0

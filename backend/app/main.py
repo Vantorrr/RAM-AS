@@ -624,7 +624,10 @@ async def read_products(
 ):
     from sqlalchemy import text as sql_text, func
     
-    query = select(models.Product).options(selectinload(models.Product.seller))
+    query = select(models.Product).options(
+        selectinload(models.Product.seller),
+        selectinload(models.Product.category)  # Загружаем категорию!
+    )
     
     # ПРОВЕРЯЕМ: есть ли вообще связи в product_vehicles?
     links_check = await db.execute(sql_text("SELECT COUNT(*) FROM product_vehicles"))
@@ -695,7 +698,10 @@ async def get_featured_products(
     """Получить товары витрины (is_featured=True)"""
     result = await db.execute(
         select(models.Product)
-        .options(selectinload(models.Product.seller))
+        .options(
+            selectinload(models.Product.seller),
+            selectinload(models.Product.category)  # Загружаем категорию!
+        )
         .where(models.Product.is_featured == True)
         .order_by(models.Product.display_order, models.Product.id)
         .limit(limit)

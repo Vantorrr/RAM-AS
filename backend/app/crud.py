@@ -8,7 +8,10 @@ async def get_product(db: AsyncSession, product_id: int):
     result = await db.execute(
         select(models.Product)
         .where(models.Product.id == product_id)
-        .options(selectinload(models.Product.seller))
+        .options(
+            selectinload(models.Product.seller),
+            selectinload(models.Product.category)  # Загружаем категорию!
+        )
     )
     return result.scalars().first()
 
@@ -16,12 +19,23 @@ async def get_product_by_part_number(db: AsyncSession, part_number: str):
     result = await db.execute(
         select(models.Product)
         .where(models.Product.part_number == part_number)
-        .options(selectinload(models.Product.seller))
+        .options(
+            selectinload(models.Product.seller),
+            selectinload(models.Product.category)  # Загружаем категорию!
+        )
     )
     return result.scalars().first()
 
 async def get_products(db: AsyncSession, skip: int = 0, limit: int = 100):
-    result = await db.execute(select(models.Product).offset(skip).limit(limit))
+    result = await db.execute(
+        select(models.Product)
+        .options(
+            selectinload(models.Product.seller),
+            selectinload(models.Product.category)  # Загружаем категорию!
+        )
+        .offset(skip)
+        .limit(limit)
+    )
     return result.scalars().all()
 
 async def create_product(db: AsyncSession, product: schemas.ProductCreate):
