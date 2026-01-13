@@ -539,6 +539,7 @@ function AdminContent() {
       if (res.ok) {
         alert("✅ Изменения сохранены!")
         setEditingProduct(null)
+        loadDashboard()  // Обновляем dashboard!
         setView('dashboard')
       } else {
         const err = await res.text()
@@ -1491,6 +1492,7 @@ function AdminContent() {
                 if (res.ok) {
                   alert('✅ Товар успешно создан!')
                   setEditingProduct(null)
+                  loadDashboard()  // Обновляем dashboard!
                   setView('dashboard')
                 } else {
                   const error = await res.json()
