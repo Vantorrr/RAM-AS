@@ -126,6 +126,141 @@ async def link_products_to_vehicles(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.post("/distribute-products-by-categories")
+async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
+    """
+    РАСПРЕДЕЛИТЬ ТОВАРЫ ПО КАТЕГОРИЯМ
+    Автоматически привязывает товары к правильным категориям по ключевым словам
+    """
+    from sqlalchemy import text
+    
+    print("🗂️ РАСПРЕДЕЛЕНИЕ ТОВАРОВ ПО КАТЕГОРИЯМ - СТАРТ!")
+    
+    # 1. Получаем все товары
+    result = await db.execute(text("SELECT id, name, part_number, manufacturer FROM products"))
+    products = result.fetchall()
+    print(f"📦 Товаров: {len(products)}")
+    
+    # 2. Получаем все категории
+    result = await db.execute(text("SELECT id, name, slug FROM categories"))
+    categories = result.fetchall()
+    cat_map = {cat[0]: (cat[1], cat[2]) for cat in categories}
+    print(f"📁 Категорий: {len(categories)}")
+    
+    # 3. Ключевые слова для категорий (ID категории → ключевые слова)
+    CATEGORY_KEYWORDS = {
+        # Детали для ТО
+        'масл': ['масл', 'oil', 'моторн'],
+        'фильтр': ['фильтр', 'filter'],
+        'свеч': ['свеч', 'spark plug', 'ignition'],
+        
+        # Двигатель
+        'двигател': ['двигател', 'engine', 'мотор', 'блок'],
+        'поршн': ['поршн', 'piston', 'кольц'],
+        'клапан': ['клапан', 'valve'],
+        
+        # Топливная система
+        'топлив': ['топлив', 'fuel', 'бензин', 'бак'],
+        'форсун': ['форсун', 'injector'],
+        'насос': ['насос', 'pump'],
+        
+        # Охлаждение
+        'радиатор': ['радиатор', 'radiator'],
+        'термостат': ['термостат', 'thermostat'],
+        'антифриз': ['антифриз', 'antifreeze', 'охлажд'],
+        
+        # Трансмиссия
+        'коробк': ['коробк', 'transmission', 'акпп', 'мкпп'],
+        'сцеплен': ['сцеплен', 'clutch'],
+        'привод': ['привод', 'shaft', 'вал'],
+        
+        # Тормоза
+        'тормоз': ['тормоз', 'brake', 'колодк', 'диск'],
+        
+        # Подвеска
+        'амортизатор': ['амортизатор', 'shock', 'стойк'],
+        'рычаг': ['рычаг', 'arm', 'подвеск'],
+        
+        # Электрика
+        'аккумулятор': ['аккумулятор', 'battery', 'акб'],
+        'генератор': ['генератор', 'alternator'],
+        'стартер': ['стартер', 'starter'],
+    }
+    
+    # 4. Создаём обратный маппинг: ключевое слово → category_id
+    keyword_to_cat = {}
+    for cat_id, (cat_name, cat_slug) in cat_map.items():
+        cat_name_lower = cat_name.lower()
+        cat_slug_lower = cat_slug.lower()
+        
+        for key_group, keywords in CATEGORY_KEYWORDS.items():
+            if any(kw in cat_name_lower or kw in cat_slug_lower for kw in keywords):
+                for kw in keywords:
+                    if kw not in keyword_to_cat:
+                        keyword_to_cat[kw] = []
+                    keyword_to_cat[kw].append(cat_id)
+    
+    # 5. Распределяем товары
+    updates = []
+    distributed = 0
+    not_distributed = 0
+    
+    for pid, name, part_num, manuf in products:
+        text_check = f"{name} {part_num or ''} {manuf or ''}".lower()
+        
+        # Ищем совпадения с ключевыми словами
+        matched_cats = set()
+        for keyword, cat_ids in keyword_to_cat.items():
+            if keyword in text_check:
+                matched_cats.update(cat_ids)
+        
+        # Если нашли категорию - обновляем
+        if matched_cats:
+            # Берём первую подходящую категорию
+            target_cat = list(matched_cats)[0]
+            updates.append((target_cat, pid))
+            distributed += 1
+        else:
+            not_distributed += 1
+    
+    print(f"✅ Распределено: {distributed}")
+    print(f"⚠️ Не распределено: {not_distributed}")
+    
+    # 6. Применяем обновления батчами
+    if updates:
+        batch_size = 1000
+        for i in range(0, len(updates), batch_size):
+            batch = updates[i:i+batch_size]
+            
+            # Используем CASE для batch update
+            cases = []
+            product_ids = []
+            for cat_id, prod_id in batch:
+                cases.append(f"WHEN {prod_id} THEN {cat_id}")
+                product_ids.append(str(prod_id))
+            
+            if cases:
+                await db.execute(text(f"""
+                    UPDATE products 
+                    SET category_id = CASE id
+                        {' '.join(cases)}
+                    END
+                    WHERE id IN ({','.join(product_ids)})
+                """))
+        
+        await db.commit()
+    
+    print(f"✅ ГОТОВО! Обновлено товаров: {distributed}")
+    
+    return {
+        "success": True,
+        "products_total": len(products),
+        "distributed": distributed,
+        "not_distributed": not_distributed,
+        "message": f"🎯 Товары распределены по категориям! Распределено: {distributed}, Не распределено: {not_distributed}"
+    }
+
+
 # ============ КАТЕГОРИИ ============
 
 @router.get("/categories", response_model=List[schemas.Category])

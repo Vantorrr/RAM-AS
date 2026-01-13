@@ -109,6 +109,7 @@ function AdminContent() {
   const [showcaseSearchResults, setShowcaseSearchResults] = useState<any[]>([])
   const [showcaseSearching, setShowcaseSearching] = useState(false)
   const [linkingProducts, setLinkingProducts] = useState(false)
+  const [distributingProducts, setDistributingProducts] = useState(false)
 
   // Helper для добавления Telegram User ID хедера к админским запросам
   const getAdminHeaders = useCallback(() => {
@@ -330,6 +331,32 @@ function AdminContent() {
       alert('❌ Ошибка сети')
     }
   }, [showcaseProducts, loadShowcase, getAdminHeaders])
+
+  // Distribute products by categories
+  const distributeProductsByCategories = useCallback(async () => {
+    if (!confirm('🗂️ Распределить товары по категориям?\n\nТовары будут автоматически распределены по категориям на основе названий.\nЭто займёт несколько секунд.')) return
+    
+    setDistributingProducts(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/distribute-products-by-categories`, {
+        method: 'POST',
+        headers: getAdminHeaders()
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        alert(`✅ Успешно!\n\n📦 Всего товаров: ${data.products_total}\n✅ Распределено: ${data.distributed}\n⚠️ Не распределено: ${data.not_distributed}\n\n${data.message}`)
+        loadDashboard()
+      } else {
+        alert('❌ Ошибка распределения')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+      console.error(e)
+    } finally {
+      setDistributingProducts(false)
+    }
+  }, [getAdminHeaders, loadDashboard])
 
   // Link products to vehicles
   const linkProductsToVehicles = useCallback(async () => {
@@ -1832,6 +1859,30 @@ function AdminContent() {
               <div>
                 <p className="font-bold text-lg">✨ Добавить товар</p>
                 <p className="text-xs text-muted-foreground">Создать новый товар</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20 p-4 cursor-pointer hover:from-orange-500/20 hover:to-orange-600/10 transition-all group active:scale-[0.98]"
+          onClick={distributeProductsByCategories}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500/30 to-orange-600/20 border border-orange-500/30 shadow-lg shadow-orange-500/20">
+                {distributingProducts ? (
+                  <Loader2 className="h-6 w-6 text-orange-400 animate-spin" />
+                ) : (
+                  <FolderTree className="h-6 w-6 text-orange-400 group-hover:scale-110 transition-transform" />
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-lg">🗂️ Распределить по категориям</p>
+                <p className="text-xs text-muted-foreground">
+                  {distributingProducts ? "Распределяю товары..." : "Автоматическая привязка товаров к категориям"}
+                </p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
