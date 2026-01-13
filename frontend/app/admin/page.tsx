@@ -509,8 +509,8 @@ function AdminContent() {
   const handleSave = async () => {
     if (!editingProduct) return
     
-    // Валидация обязательных полей
-    if (!editingProduct.name || !editingProduct.part_number) {
+    // Валидация обязательных полей (с trim!)
+    if (!editingProduct.name?.trim() || !editingProduct.part_number?.trim()) {
       alert('❌ Заполните обязательные поля: Название, Артикул, Цена')
       return
     }
@@ -525,8 +525,8 @@ function AdminContent() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: editingProduct.name,
-          part_number: editingProduct.part_number,
+          name: editingProduct.name.trim(),  // Trim перед отправкой!
+          part_number: editingProduct.part_number.trim(),  // Trim перед отправкой!
           price_rub: editingProduct.price_rub,
           stock_quantity: editingProduct.stock_quantity,
           category_id: editingProduct.category_id,
@@ -1461,7 +1461,8 @@ function AdminContent() {
 
           <Button 
             onClick={async () => {
-              if (!editingProduct?.name || !editingProduct?.part_number) {
+              // Валидация с trim!
+              if (!editingProduct?.name?.trim() || !editingProduct?.part_number?.trim()) {
                 alert('Заполните обязательные поля: Название, Артикул, Цена')
                 return
               }
@@ -1476,8 +1477,8 @@ function AdminContent() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    name: editingProduct.name,
-                    part_number: editingProduct.part_number,
+                    name: editingProduct.name.trim(),  // Trim перед отправкой!
+                    part_number: editingProduct.part_number.trim(),  // Trim перед отправкой!
                     price_rub: editingProduct.price_rub,
                     stock_quantity: editingProduct.stock_quantity || 0,
                     category_id: editingProduct.category_id || flattenCategories(categories)[0]?.id || 1,
