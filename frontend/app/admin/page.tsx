@@ -484,6 +484,21 @@ function AdminContent() {
     const file = e.target.files?.[0]
     if (!file || !editingProduct) return
     
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+      alert("❌ Можно загружать только изображения (JPG, PNG, GIF, WebP)")
+      e.target.value = '' // Очищаем input
+      return
+    }
+    
+    // Проверка размера файла (максимум 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB в байтах
+    if (file.size > maxSize) {
+      alert("❌ Размер файла не должен превышать 5MB")
+      e.target.value = '' // Очищаем input
+      return
+    }
+    
     const formData = new FormData()
     formData.append('file', file)
     
@@ -502,6 +517,8 @@ function AdminContent() {
       }
     } catch (err) {
       alert("❌ Ошибка сети")
+    } finally {
+      e.target.value = '' // Очищаем input для возможности повторной загрузки того же файла
     }
   }
 
