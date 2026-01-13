@@ -508,6 +508,17 @@ function AdminContent() {
   // Save product
   const handleSave = async () => {
     if (!editingProduct) return
+    
+    // Валидация обязательных полей
+    if (!editingProduct.name || !editingProduct.part_number) {
+      alert('❌ Заполните обязательные поля: Название, Артикул, Цена')
+      return
+    }
+    if (!editingProduct.price_rub || editingProduct.price_rub <= 0) {
+      alert('❌ Цена должна быть больше 0')
+      return
+    }
+    
     setSaving(true)
     try {
       const res = await fetch(`${API_URL}/products/${editingProduct.id}`, {
@@ -1449,8 +1460,12 @@ function AdminContent() {
 
           <Button 
             onClick={async () => {
-              if (!editingProduct?.name || !editingProduct?.part_number || !editingProduct?.price_rub) {
+              if (!editingProduct?.name || !editingProduct?.part_number) {
                 alert('Заполните обязательные поля: Название, Артикул, Цена')
+                return
+              }
+              if (!editingProduct?.price_rub || editingProduct.price_rub <= 0) {
+                alert('Цена должна быть больше 0')
                 return
               }
               
