@@ -1212,7 +1212,7 @@ function AdminContent() {
               </label>
               <select 
                 value={editingProduct?.category_id || ''}
-                onChange={e => setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || 1})}
+                onChange={e => setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || flattenCategories(categories)[0]?.id || 1})}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
               >
                 <option value="">Выберите категорию...</option>
@@ -1379,7 +1379,7 @@ function AdminContent() {
               </label>
               <select 
                 value={editingProduct?.category_id || ''}
-                onChange={e => setEditingProduct({...(editingProduct || {} as Product), category_id: parseInt(e.target.value) || 1})}
+                onChange={e => setEditingProduct({...(editingProduct || {} as Product), category_id: parseInt(e.target.value) || flattenCategories(categories)[0]?.id || 1})}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
               >
                 <option value="">Выберите категорию...</option>
@@ -1480,7 +1480,7 @@ function AdminContent() {
                     part_number: editingProduct.part_number,
                     price_rub: editingProduct.price_rub,
                     stock_quantity: editingProduct.stock_quantity || 0,
-                    category_id: editingProduct.category_id || 1,
+                    category_id: editingProduct.category_id || flattenCategories(categories)[0]?.id || 1,
                     image_url: editingProduct.image_url,
                     is_in_stock: editingProduct.is_in_stock || false,
                     is_installment_available: editingProduct.is_installment_available || false,
@@ -1709,6 +1709,11 @@ function AdminContent() {
           className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20 p-4 cursor-pointer hover:from-green-500/20 hover:to-green-600/10 transition-all group active:scale-[0.98]"
           onClick={() => { 
             // Инициализируем пустой товар для создания
+            if (categories.length === 0) loadCategories();
+            
+            // Используем первую доступную категорию вместо hardcode
+            const firstCategoryId = flattenCategories(categories)[0]?.id || 1;
+            
             setEditingProduct({
               id: 0,
               name: '',
@@ -1718,9 +1723,8 @@ function AdminContent() {
               stock_quantity: 0,
               image_url: null,
               is_installment_available: false,
-              category_id: 1
+              category_id: firstCategoryId
             }); 
-            if (categories.length === 0) loadCategories(); 
             setView('create'); 
           }}
         >
