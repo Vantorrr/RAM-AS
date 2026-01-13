@@ -511,6 +511,7 @@ function AdminContent() {
           part_number: editingProduct.part_number,
           price_rub: editingProduct.price_rub,
           stock_quantity: editingProduct.stock_quantity,
+          category_id: editingProduct.category_id,
           image_url: editingProduct.image_url,
           is_in_stock: editingProduct.is_in_stock,
           is_installment_available: editingProduct.is_installment_available
@@ -1187,6 +1188,25 @@ function AdminContent() {
 
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
+                <FolderTree className="h-3 w-3 inline mr-1" />
+                Категория
+              </label>
+              <select 
+                value={editingProduct?.category_id || ''}
+                onChange={e => setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || 1})}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
+              >
+                <option value="">Выберите категорию...</option>
+                {flattenCategories(categories).map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {'\u00A0'.repeat(cat.level * 3)}{cat.level > 0 ? '→ ' : ''}{cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
                 <ImageIcon className="h-3 w-3 inline mr-1" />
                 Фото товара
               </label>
@@ -1503,7 +1523,11 @@ function AdminContent() {
             products.map(product => (
               <Card 
                 key={product.id} 
-                onClick={() => { setEditingProduct(product); setView('edit') }}
+                onClick={() => { 
+                  setEditingProduct(product); 
+                  if (categories.length === 0) loadCategories(); 
+                  setView('edit'); 
+                }}
                 className="bg-white/5 border-white/10 p-3 cursor-pointer hover:bg-white/10 transition-all"
               >
                 <div className="flex items-center gap-3">
@@ -1787,7 +1811,11 @@ function AdminContent() {
           recentProducts.map(product => (
             <Card 
               key={product.id}
-              onClick={() => { setEditingProduct(product); setView('edit') }}
+              onClick={() => { 
+                setEditingProduct(product); 
+                if (categories.length === 0) loadCategories(); 
+                setView('edit'); 
+              }}
               className="bg-white/5 border-white/10 p-3 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.98]"
             >
               <div className="flex items-center gap-3">
