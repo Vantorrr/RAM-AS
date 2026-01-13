@@ -227,6 +227,18 @@ function AdminContent() {
     }
   }, [])
 
+  // Flatten categories tree (для селекта категорий)
+  const flattenCategories = (cats: any[], level = 0): any[] => {
+    let result: any[] = []
+    for (const cat of cats) {
+      result.push({ ...cat, level })
+      if (cat.children && cat.children.length > 0) {
+        result = result.concat(flattenCategories(cat.children, level + 1))
+      }
+    }
+    return result
+  }
+
   // Load showcase products
   const loadShowcase = useCallback(async () => {
     setLoading(true)
@@ -1332,8 +1344,10 @@ function AdminContent() {
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
               >
                 <option value="">Выберите категорию...</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                {flattenCategories(categories).map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {'\u00A0'.repeat(cat.level * 3)}{cat.level > 0 ? '→ ' : ''}{cat.name}
+                  </option>
                 ))}
               </select>
             </div>
