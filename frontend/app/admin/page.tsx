@@ -12,7 +12,7 @@ import {
   Image as ImageIcon, Percent, ShoppingCart, Users,
   TrendingUp, Box, Edit, ChevronRight, Upload, AlertCircle, RefreshCw,
   Handshake, Tag, Check, X, Ban, Eye, Phone, Mail, MessageCircle,
-  FolderTree, Star, Plus, Trash2, GripVertical, Loader2
+  FolderTree, Star, Plus, Trash2, GripVertical, Loader2, Car
 } from "lucide-react"
 import { API_URL } from "@/lib/config"
 import { useSearchParams } from "next/navigation"
@@ -108,6 +108,7 @@ function AdminContent() {
   const [showcaseSearchQuery, setShowcaseSearchQuery] = useState('')
   const [showcaseSearchResults, setShowcaseSearchResults] = useState<any[]>([])
   const [showcaseSearching, setShowcaseSearching] = useState(false)
+  const [linkingProducts, setLinkingProducts] = useState(false)
 
   // Helper для добавления Telegram User ID хедера к админским запросам
   const getAdminHeaders = useCallback(() => {
@@ -329,6 +330,31 @@ function AdminContent() {
       alert('❌ Ошибка сети')
     }
   }, [showcaseProducts, loadShowcase, getAdminHeaders])
+
+  // Link products to vehicles
+  const linkProductsToVehicles = useCallback(async () => {
+    if (!confirm('🚗 Привязать ВСЕ товары к машинам?\n\nЭто займёт несколько секунд.\nТекущие привязки будут перезаписаны.')) return
+    
+    setLinkingProducts(true)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/link-products`, {
+        method: 'POST',
+        headers: getAdminHeaders()
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        alert(`✅ Успешно!\n\n📦 Товаров: ${data.products_count}\n🔗 Связей: ${data.links_created.toLocaleString()}\n\n${data.message}`)
+      } else {
+        alert('❌ Ошибка привязки')
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+      console.error(e)
+    } finally {
+      setLinkingProducts(false)
+    }
+  }, [getAdminHeaders])
 
   // Showcase: убрать товар с витрины
   const removeFromShowcase = useCallback(async (productId: number) => {
@@ -1806,6 +1832,30 @@ function AdminContent() {
               <div>
                 <p className="font-bold text-lg">✨ Добавить товар</p>
                 <p className="text-xs text-muted-foreground">Создать новый товар</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20 p-4 cursor-pointer hover:from-red-500/20 hover:to-red-600/10 transition-all group active:scale-[0.98]"
+          onClick={linkProductsToVehicles}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-red-500/30 to-red-600/20 border border-red-500/30 shadow-lg shadow-red-500/20">
+                {linkingProducts ? (
+                  <Loader2 className="h-6 w-6 text-red-400 animate-spin" />
+                ) : (
+                  <Car className="h-6 w-6 text-red-400 group-hover:scale-110 transition-transform" />
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-lg">🚗 Привязка к машинам</p>
+                <p className="text-xs text-muted-foreground">
+                  {linkingProducts ? "Привязываю товары..." : "Связать товары с автомобилями"}
+                </p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />

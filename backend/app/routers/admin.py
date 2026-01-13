@@ -35,6 +35,97 @@ router = APIRouter(
 )
 
 
+# ============ ПРИВЯЗКА ТОВАРОВ К МАШИНАМ ============
+
+@router.post("/link-products")
+async def link_products_to_vehicles(db: AsyncSession = Depends(get_db)):
+    """
+    ПРИВЯЗАТЬ ВСЕ ТОВАРЫ К МАШИНАМ
+    Быстрая привязка по ключевым словам
+    """
+    from sqlalchemy import text
+    
+    print("🚀 БЫСТРАЯ ПРИВЯЗКА - СТАРТ!")
+    
+    # 1. ОЧИЩАЕМ
+    await db.execute(text("TRUNCATE TABLE product_vehicles"))
+    await db.commit()
+    print("✅ Таблица очищена!")
+    
+    # 2. ПОЛУЧАЕМ ТОВАРЫ
+    result = await db.execute(text("SELECT id, name, part_number, manufacturer FROM products ORDER BY id"))
+    products = result.fetchall()
+    print(f"📦 Товаров: {len(products)}")
+    
+    # 3. ID ДИАПАЗОНЫ МАШИН
+    RAM_IDS = list(range(1, 47))
+    DODGE_IDS = list(range(47, 140))
+    JEEP_IDS = list(range(140, 186))
+    CHRYSLER_IDS = list(range(186, 232))
+    ALL_IDS = list(range(1, 232))
+    
+    UNIVERSAL = ['масло', 'oil', 'жидкость', 'fluid', 'моющ', 'wash', 'свеч', 'spark', 
+                 'воздушн', 'air filter', 'салон', 'cabin', 'antifreeze', 'антифриз', 
+                 'очистител', 'cleaner', 'присадк', 'additive', 'герметик', 'sealant',
+                 'смазка', 'grease', 'brake fluid', 'тормозная жидкость']
+    
+    # 4. СОБИРАЕМ ВСЕ СВЯЗИ
+    all_inserts = []
+    
+    for pid, name, part_num, manuf in products:
+        text_check = f"{name} {part_num or ''} {manuf or ''}".upper()
+        
+        # Определяем машины
+        if any(kw.upper() in text_check for kw in UNIVERSAL):
+            vehicle_ids = ALL_IDS
+        elif 'RAM' in text_check or '1500' in text_check or '2500' in text_check:
+            vehicle_ids = RAM_IDS
+        elif 'DODGE' in text_check or 'CHALLENGER' in text_check or 'CHARGER' in text_check:
+            vehicle_ids = DODGE_IDS
+        elif 'JEEP' in text_check or 'WRANGLER' in text_check or 'CHEROKEE' in text_check:
+            vehicle_ids = JEEP_IDS
+        elif 'CHRYSLER' in text_check or 'PACIFICA' in text_check:
+            vehicle_ids = CHRYSLER_IDS
+        else:
+            vehicle_ids = ALL_IDS
+        
+        # Добавляем в батч
+        for vid in vehicle_ids:
+            all_inserts.append(f"({pid},{vid})")
+    
+    print(f"✅ Подготовлено {len(all_inserts):,} связей")
+    
+    # 5. МАССОВАЯ ВСТАВКА БАТЧАМИ
+    batch_size = 5000
+    for i in range(0, len(all_inserts), batch_size):
+        batch = all_inserts[i:i+batch_size]
+        values = ",".join(batch)
+        
+        await db.execute(text(f"""
+            INSERT INTO product_vehicles (product_id, vehicle_id)
+            VALUES {values}
+            ON CONFLICT DO NOTHING
+        """))
+        
+        if i % 50000 == 0:
+            print(f"  → {i:,} / {len(all_inserts):,}")
+    
+    await db.commit()
+    
+    # 6. ПРОВЕРКА
+    result = await db.execute(text("SELECT COUNT(*) FROM product_vehicles"))
+    count = result.scalar()
+    
+    print(f"✅ ГОТОВО! Создано связей: {count:,}")
+    
+    return {
+        "success": True,
+        "products_count": len(products),
+        "links_created": count,
+        "message": "🎯 Фильтрация по машинам теперь работает!"
+    }
+
+
 # ============ КАТЕГОРИИ ============
 
 @router.get("/categories", response_model=List[schemas.Category])
