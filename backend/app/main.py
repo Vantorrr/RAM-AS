@@ -599,6 +599,27 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     return db_product
 
+@app.delete("/products/{product_id}")
+async def delete_product(
+    product_id: int,
+    db: AsyncSession = Depends(database.get_db)
+):
+    """Удалить товар"""
+    # Проверяем существование товара
+    result = await db.execute(
+        select(models.Product).where(models.Product.id == product_id)
+    )
+    db_product = result.scalars().first()
+    
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Удаляем товар
+    await db.delete(db_product)
+    await db.commit()
+    
+    return {"success": True, "message": f"Product {product_id} deleted successfully"}
+
 async def get_all_subcategory_ids(db: AsyncSession, category_id: int) -> List[int]:
     """Получить все ID подкатегорий рекурсивно"""
     result = await db.execute(

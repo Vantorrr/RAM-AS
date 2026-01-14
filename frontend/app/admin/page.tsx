@@ -81,7 +81,7 @@ function AdminContent() {
   // Оборачиваем в try-catch или используем дефолт, так как useSearchParams может быть null на сервере (хотя это client component)
   const initialView = (searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase') || 'dashboard'
   
-  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'create' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'>(initialView)
+  const [view, setView] = useState<'dashboard' | 'search' | 'edit' | 'create' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase' | 'all-products'>(initialView)
   const [products, setProducts] = useState<Product[]>([])
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
@@ -110,6 +110,13 @@ function AdminContent() {
   const [showcaseSearching, setShowcaseSearching] = useState(false)
   const [linkingProducts, setLinkingProducts] = useState(false)
   const [distributingProducts, setDistributingProducts] = useState(false)
+  
+  // All products management
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [allProductsPage, setAllProductsPage] = useState(0)
+  const [allProductsTotal, setAllProductsTotal] = useState(0)
+  const [allProductsLoading, setAllProductsLoading] = useState(false)
+  const ALL_PRODUCTS_LIMIT = 50
 
   // Helper для добавления Telegram User ID хедера к админским запросам
   const getAdminHeaders = useCallback(() => {
@@ -125,13 +132,14 @@ function AdminContent() {
 
   // Update view when URL changes
   useEffect(() => {
-    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase'
+    const viewParam = searchParams?.get('view') as 'dashboard' | 'search' | 'edit' | 'sellers' | 'listings' | 'orders' | 'categories' | 'showcase' | 'all-products'
     if (viewParam) {
       setView(viewParam)
       if (viewParam === 'sellers') loadSellers()
       if (viewParam === 'listings') loadListings()
       if (viewParam === 'orders') loadOrders()
       if (viewParam === 'categories') loadCategories()
+      if (viewParam === 'all-products') loadAllProducts()
       if (viewParam === 'showcase') loadShowcase()
     }
   }, [searchParams])
@@ -331,6 +339,61 @@ function AdminContent() {
       alert('❌ Ошибка сети')
     }
   }, [showcaseProducts, loadShowcase, getAdminHeaders])
+
+  // Load all products with pagination
+  const loadAllProducts = useCallback(async (page = 0) => {
+    setAllProductsLoading(true)
+    try {
+      const skip = page * ALL_PRODUCTS_LIMIT
+      const [productsRes, countRes] = await Promise.all([
+        fetch(`${API_URL}/products/?skip=${skip}&limit=${ALL_PRODUCTS_LIMIT}`),
+        fetch(`${API_URL}/products/count`)
+      ])
+      
+      if (productsRes.ok && countRes.ok) {
+        const productsData = await productsRes.json()
+        const countData = await countRes.json()
+        setAllProducts(productsData)
+        setAllProductsTotal(countData.count)
+        setAllProductsPage(page)
+      }
+    } catch (e) {
+      console.error('Failed to load products:', e)
+    } finally {
+      setAllProductsLoading(false)
+    }
+  }, [ALL_PRODUCTS_LIMIT])
+
+  // Delete product
+  const deleteProduct = useCallback(async (productId: number) => {
+    if (!confirm('⚠️ Удалить товар?\n\nЭто действие нельзя отменить!')) return
+    
+    try {
+      const res = await fetch(`${API_URL}/products/${productId}`, {
+        method: 'DELETE',
+        headers: getAdminHeaders()
+      })
+      
+      if (res.ok) {
+        alert('✅ Товар удалён!')
+        
+        // Обновляем списки
+        if (view === 'all-products') {
+          loadAllProducts(allProductsPage)
+        }
+        if (view === 'edit') {
+          setView('dashboard')
+        }
+        loadDashboard()
+      } else {
+        const error = await res.json()
+        alert(`❌ Ошибка: ${error.detail || 'Не удалось удалить товар'}`)
+      }
+    } catch (e) {
+      alert('❌ Ошибка сети')
+      console.error(e)
+    }
+  }, [getAdminHeaders, view, allProductsPage, loadAllProducts, loadDashboard])
 
   // Distribute products by categories
   const distributeProductsByCategories = useCallback(async () => {
@@ -667,6 +730,153 @@ function AdminContent() {
   }
 
   // ============ SELLERS VIEW ============
+  if (view === 'all-products') {
+    const totalPages = Math.ceil(allProductsTotal / ALL_PRODUCTS_LIMIT)
+    
+    return (
+      <div className="h-full overflow-y-auto bg-background text-foreground p-4">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setView('dashboard')}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold">📦 Все товары</h2>
+            <p className="text-sm text-muted-foreground">
+              Показано {allProducts.length} из {allProductsTotal} • Страница {allProductsPage + 1} из {totalPages}
+            </p>
+          </div>
+        </div>
+
+        {allProductsLoading ? (
+          <div className="grid grid-cols-1 gap-3">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-24 bg-white/5 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2 mb-6">
+              {allProducts.map(product => (
+                <Card key={product.id} className="bg-white/5 border-white/10 p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                      {product.image_url ? (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-bold truncate">{product.name}</p>
+                        {product.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {product.category.name}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Артикул: {product.part_number} • {product.price_rub}₽
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        {product.is_in_stock ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            В наличии
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                            Нет в наличии
+                          </Badge>
+                        )}
+                        {product.stock_quantity > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            {product.stock_quantity} шт
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditingProduct(product)
+                          setView('edit')
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => deleteProduct(product.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center gap-2 mt-6">
+                <Button
+                  onClick={() => loadAllProducts(allProductsPage - 1)}
+                  disabled={allProductsPage === 0}
+                  size="sm"
+                >
+                  ← Назад
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                    let pageNum = i
+                    if (totalPages > 5) {
+                      if (allProductsPage < 3) {
+                        pageNum = i
+                      } else if (allProductsPage > totalPages - 3) {
+                        pageNum = totalPages - 5 + i
+                      } else {
+                        pageNum = allProductsPage - 2 + i
+                      }
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        onClick={() => loadAllProducts(pageNum)}
+                        size="sm"
+                        variant={allProductsPage === pageNum ? "default" : "outline"}
+                      >
+                        {pageNum + 1}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <Button
+                  onClick={() => loadAllProducts(allProductsPage + 1)}
+                  disabled={allProductsPage >= totalPages - 1}
+                  size="sm"
+                >
+                  Вперёд →
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (view === 'sellers') {
     return (
       <div className="h-full overflow-y-auto bg-background text-foreground p-4">
@@ -1414,6 +1624,14 @@ function AdminContent() {
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Сохранение..." : "💾 Сохранить изменения"}
           </Button>
+
+          <Button 
+            onClick={() => editingProduct && deleteProduct(editingProduct.id)} 
+            className="w-full bg-red-600 hover:bg-red-700 mt-3"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            🗑️ Удалить товар
+          </Button>
         </div>
       </div>
     )
@@ -1812,6 +2030,27 @@ function AdminContent() {
       <div className="space-y-3 mb-8">
         <Card 
           className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
+          onClick={() => {
+            setView('all-products')
+            loadAllProducts(0)
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/20 shadow-lg shadow-purple-500/10">
+                <Package className="h-6 w-6 text-purple-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <div>
+                <p className="font-bold text-lg">📦 Все товары</p>
+                <p className="text-xs text-muted-foreground">Полный список • Редактирование • Удаление</p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+          </div>
+        </Card>
+
+        <Card 
+          className="bg-white/5 border-white/10 p-4 cursor-pointer hover:bg-white/10 transition-all group active:scale-[0.98]"
           onClick={() => setView('search')}
         >
           <div className="flex items-center justify-between">
@@ -1820,8 +2059,8 @@ function AdminContent() {
                 <Search className="h-6 w-6 text-blue-400 group-hover:scale-110 transition-transform" />
               </div>
               <div>
-                <p className="font-bold text-lg">Поиск товаров</p>
-                <p className="text-xs text-muted-foreground">Редактирование цен, фото, остатков</p>
+                <p className="font-bold text-lg">🔍 Поиск товаров</p>
+                <p className="text-xs text-muted-foreground">Быстрый поиск по артикулу, названию</p>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
