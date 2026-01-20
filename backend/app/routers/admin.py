@@ -129,96 +129,95 @@ async def link_products_to_vehicles(db: AsyncSession = Depends(get_db)):
 @router.post("/distribute-products-by-categories")
 async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
     """
-    РАСПРЕДЕЛИТЬ ТОВАРЫ ПО КАТЕГОРИЯМ
-    Автоматически привязывает товары к правильным категориям по ключевым словам
+    РАСПРЕДЕЛИТЬ ТОВАРЫ ПО КАТЕГОРИЯМ (УМНЫЙ АЛГОРИТМ)
+    Извлекает ключевые слова из названий категорий и распределяет товары
+    Приоритизирует более специфичные категории (больше совпадений)
     """
     from sqlalchemy import text
+    import re
     
-    print("🗂️ РАСПРЕДЕЛЕНИЕ ТОВАРОВ ПО КАТЕГОРИЯМ - СТАРТ!")
+    print("🗂️ УМНОЕ РАСПРЕДЕЛЕНИЕ ТОВАРОВ ПО КАТЕГОРИЯМ - СТАРТ!")
     
     # 1. Получаем все товары
     result = await db.execute(text("SELECT id, name, part_number, manufacturer FROM products"))
     products = result.fetchall()
     print(f"📦 Товаров: {len(products)}")
     
-    # 2. Получаем все категории
-    result = await db.execute(text("SELECT id, name, slug FROM categories"))
+    # 2. Получаем все категории с parent_id для определения приоритета
+    result = await db.execute(text("SELECT id, name, slug, parent_id FROM categories ORDER BY parent_id DESC"))
     categories = result.fetchall()
-    cat_map = {cat[0]: (cat[1], cat[2]) for cat in categories}
     print(f"📁 Категорий: {len(categories)}")
     
-    # 3. Ключевые слова для категорий (ID категории → ключевые слова)
-    CATEGORY_KEYWORDS = {
-        # Детали для ТО
-        'масл': ['масл', 'oil', 'моторн'],
-        'фильтр': ['фильтр', 'filter'],
-        'свеч': ['свеч', 'spark plug', 'ignition'],
-        
-        # Двигатель
-        'двигател': ['двигател', 'engine', 'мотор', 'блок'],
-        'поршн': ['поршн', 'piston', 'кольц'],
-        'клапан': ['клапан', 'valve'],
-        
-        # Топливная система
-        'топлив': ['топлив', 'fuel', 'бензин', 'бак'],
-        'форсун': ['форсун', 'injector'],
-        'насос': ['насос', 'pump'],
-        
-        # Охлаждение
-        'радиатор': ['радиатор', 'radiator'],
-        'термостат': ['термостат', 'thermostat'],
-        'антифриз': ['антифриз', 'antifreeze', 'охлажд'],
-        
-        # Трансмиссия
-        'коробк': ['коробк', 'transmission', 'акпп', 'мкпп'],
-        'сцеплен': ['сцеплен', 'clutch'],
-        'привод': ['привод', 'shaft', 'вал'],
-        
-        # Тормоза
-        'тормоз': ['тормоз', 'brake', 'колодк', 'диск'],
-        
-        # Подвеска
-        'амортизатор': ['амортизатор', 'shock', 'стойк'],
-        'рычаг': ['рычаг', 'arm', 'подвеск'],
-        
-        # Электрика
-        'аккумулятор': ['аккумулятор', 'battery', 'акб'],
-        'генератор': ['генератор', 'alternator'],
-        'стартер': ['стартер', 'starter'],
+    # СТОП-СЛОВА (игнорируем при извлечении ключевых слов)
+    STOP_WORDS = {
+        'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о', 
+        'the', 'a', 'an', 'and', 'or', 'but', 'for', 'with', 'to', 'of', 'in'
     }
     
-    # 4. Создаём обратный маппинг: ключевое слово → category_id
-    keyword_to_cat = {}
-    for cat_id, (cat_name, cat_slug) in cat_map.items():
-        cat_name_lower = cat_name.lower()
-        cat_slug_lower = cat_slug.lower()
-        
-        for key_group, keywords in CATEGORY_KEYWORDS.items():
-            if any(kw in cat_name_lower or kw in cat_slug_lower for kw in keywords):
-                for kw in keywords:
-                    if kw not in keyword_to_cat:
-                        keyword_to_cat[kw] = []
-                    keyword_to_cat[kw].append(cat_id)
+    def extract_keywords(text: str) -> list:
+        """Извлекает ключевые слова из текста (без стоп-слов)"""
+        # Убираем спецсимволы, оставляем только буквы и цифры
+        clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
+        # Разбиваем на слова
+        words = clean_text.split()
+        # Фильтруем стоп-слова и короткие слова (меньше 3 символов)
+        keywords = [w for w in words if w not in STOP_WORDS and len(w) >= 3]
+        return keywords
     
-    # 5. Распределяем товары
+    # 3. Подготавливаем категории с ключевыми словами
+    category_data = []
+    for cat_id, cat_name, cat_slug, parent_id in categories:
+        # Извлекаем ключевые слова из названия и slug
+        keywords = extract_keywords(f"{cat_name} {cat_slug}")
+        
+        # Определяем уровень вложенности (подкатегории = более специфичные)
+        depth = 0
+        if parent_id is not None:
+            depth = 1  # Подкатегория
+        
+        category_data.append({
+            'id': cat_id,
+            'name': cat_name,
+            'keywords': keywords,
+            'depth': depth,  # Чем больше глубина, тем выше приоритет
+            'keyword_count': len(keywords)
+        })
+    
+    print(f"✅ Подготовлено {len(category_data)} категорий с ключевыми словами")
+    
+    # 4. Распределяем товары
     updates = []
     distributed = 0
     not_distributed = 0
     
     for pid, name, part_num, manuf in products:
-        text_check = f"{name} {part_num or ''} {manuf or ''}".lower()
+        # Извлекаем ключевые слова из товара
+        product_text = f"{name} {part_num or ''} {manuf or ''}"
+        product_keywords = set(extract_keywords(product_text))
         
-        # Ищем совпадения с ключевыми словами
-        matched_cats = set()
-        for keyword, cat_ids in keyword_to_cat.items():
-            if keyword in text_check:
-                matched_cats.update(cat_ids)
+        # Ищем лучшую категорию
+        best_match = None
+        best_score = 0
+        
+        for cat in category_data:
+            # Считаем совпадения ключевых слов
+            matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
+            
+            if matches > 0:
+                # Вычисляем score:
+                # - Количество совпадений (главный фактор)
+                # - Глубина вложенности (подкатегории приоритетнее)
+                # - Процент покрытия ключевых слов категории
+                coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
+                score = (matches * 100) + (cat['depth'] * 10) + (coverage * 5)
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = cat['id']
         
         # Если нашли категорию - обновляем
-        if matched_cats:
-            # Берём первую подходящую категорию
-            target_cat = list(matched_cats)[0]
-            updates.append((target_cat, pid))
+        if best_match:
+            updates.append((best_match, pid))
             distributed += 1
         else:
             not_distributed += 1
@@ -226,7 +225,7 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
     print(f"✅ Распределено: {distributed}")
     print(f"⚠️ Не распределено: {not_distributed}")
     
-    # 6. Применяем обновления батчами
+    # 5. Применяем обновления батчами
     if updates:
         batch_size = 1000
         for i in range(0, len(updates), batch_size):
@@ -257,7 +256,7 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         "products_total": len(products),
         "distributed": distributed,
         "not_distributed": not_distributed,
-        "message": f"🎯 Товары распределены по категориям! Распределено: {distributed}, Не распределено: {not_distributed}"
+        "message": f"🎯 Умное распределение завершено! Распределено: {distributed}, Не распределено: {not_distributed}"
     }
 
 
