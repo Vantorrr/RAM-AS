@@ -777,7 +777,6 @@ async def get_products_count(
         # Без фильтра по авто - обычный count
         query = select(func.count(models.Product.id)).select_from(models.Product)
     
-    # ВРЕМЕННО: все категории показывают товары из склада (50)    
     # Фильтр по категориям (включая подкатегории)
     if category_id:
         all_category_ids = await get_all_subcategory_ids(db, category_id)
