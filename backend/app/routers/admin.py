@@ -57,17 +57,41 @@ async def link_products_to_vehicles(db: AsyncSession = Depends(get_db)):
     products = result.fetchall()
     print(f"📦 Товаров: {len(products)}")
     
-    # 3. ID ДИАПАЗОНЫ МАШИН
-    RAM_IDS = list(range(1, 47))
-    DODGE_IDS = list(range(47, 140))
-    JEEP_IDS = list(range(140, 186))
-    CHRYSLER_IDS = list(range(186, 232))
-    ALL_IDS = list(range(1, 232))
+    # 3. ПОЛУЧАЕМ ID МАШИН ПО МАРКАМ (ДИНАМИЧЕСКИ!)
+    make_ids = {}
+    all_vehicle_ids = []
+    
+    # Все американские марки
+    american_makes = ['RAM', 'Dodge', 'Jeep', 'Chrysler', 'Hummer', 'Cadillac', 'Chevrolet', 'GMC', 'Lincoln']
+    
+    for make in american_makes:
+        result = await db.execute(text(f"SELECT id FROM vehicles WHERE make = '{make}'"))
+        ids = [row[0] for row in result.fetchall()]
+        make_ids[make.upper()] = ids
+        all_vehicle_ids.extend(ids)
+    
+    print(f"🚗 Машин в базе: {len(all_vehicle_ids)}")
+    for make, ids in make_ids.items():
+        if ids:
+            print(f"  → {make}: {len(ids)} моделей")
     
     UNIVERSAL = ['масло', 'oil', 'жидкость', 'fluid', 'моющ', 'wash', 'свеч', 'spark', 
                  'воздушн', 'air filter', 'салон', 'cabin', 'antifreeze', 'антифриз', 
                  'очистител', 'cleaner', 'присадк', 'additive', 'герметик', 'sealant',
                  'смазка', 'grease', 'brake fluid', 'тормозная жидкость']
+    
+    # Ключевые слова для марок
+    MAKE_KEYWORDS = {
+        'RAM': ['RAM', '1500', '2500', '3500', 'TRX'],
+        'DODGE': ['DODGE', 'CHALLENGER', 'CHARGER', 'DURANGO'],
+        'JEEP': ['JEEP', 'WRANGLER', 'CHEROKEE', 'GLADIATOR', 'COMPASS'],
+        'CHRYSLER': ['CHRYSLER', 'PACIFICA', '300'],
+        'HUMMER': ['HUMMER', 'H1', 'H2', 'H3'],
+        'CADILLAC': ['CADILLAC', 'ESCALADE', 'CTS', 'ATS', 'XT5', 'XT6'],
+        'CHEVROLET': ['CHEVROLET', 'CHEVY', 'CAMARO', 'CORVETTE', 'TAHOE', 'SUBURBAN', 'SILVERADO'],
+        'GMC': ['GMC', 'SIERRA', 'YUKON', 'CANYON', 'ACADIA'],
+        'LINCOLN': ['LINCOLN', 'NAVIGATOR', 'AVIATOR', 'CONTINENTAL'],
+    }
     
     # 4. СОБИРАЕМ ВСЕ СВЯЗИ
     all_inserts = []
@@ -77,17 +101,16 @@ async def link_products_to_vehicles(db: AsyncSession = Depends(get_db)):
         
         # Определяем машины
         if any(kw.upper() in text_check for kw in UNIVERSAL):
-            vehicle_ids = ALL_IDS
-        elif 'RAM' in text_check or '1500' in text_check or '2500' in text_check:
-            vehicle_ids = RAM_IDS
-        elif 'DODGE' in text_check or 'CHALLENGER' in text_check or 'CHARGER' in text_check:
-            vehicle_ids = DODGE_IDS
-        elif 'JEEP' in text_check or 'WRANGLER' in text_check or 'CHEROKEE' in text_check:
-            vehicle_ids = JEEP_IDS
-        elif 'CHRYSLER' in text_check or 'PACIFICA' in text_check:
-            vehicle_ids = CHRYSLER_IDS
+            vehicle_ids = all_vehicle_ids
         else:
-            vehicle_ids = ALL_IDS
+            # Ищем совпадения с ключевыми словами марок
+            matched_ids = []
+            for make, keywords in MAKE_KEYWORDS.items():
+                if any(kw in text_check for kw in keywords):
+                    matched_ids.extend(make_ids.get(make, []))
+            
+            # Если нашли совпадения - используем их, иначе - все машины
+            vehicle_ids = matched_ids if matched_ids else all_vehicle_ids
         
         # Добавляем в батч
         for vid in vehicle_ids:

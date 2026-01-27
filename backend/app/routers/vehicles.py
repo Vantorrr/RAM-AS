@@ -9,7 +9,17 @@ from ..database import get_db
 router = APIRouter(prefix="/vehicles", tags=["Vehicles"])
 
 # 🇺🇸 ТОЛЬКО АМЕРИКАНСКИЕ МАРКИ (RAM-US специализация)
-AMERICAN_MAKES = ["RAM", "Dodge", "Jeep", "Chrysler"]
+AMERICAN_MAKES = [
+    "RAM", 
+    "Dodge", 
+    "Jeep", 
+    "Chrysler",
+    "Hummer",
+    "Cadillac", 
+    "Chevrolet",
+    "GMC",
+    "Lincoln"
+]
 
 @router.get("/config")
 async def get_vehicles_config(db: AsyncSession = Depends(get_db)):
