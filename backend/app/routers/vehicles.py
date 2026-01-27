@@ -8,14 +8,20 @@ from ..database import get_db
 
 router = APIRouter(prefix="/vehicles", tags=["Vehicles"])
 
+# 🇺🇸 ТОЛЬКО АМЕРИКАНСКИЕ МАРКИ (RAM-US специализация)
+AMERICAN_MAKES = ["RAM", "Dodge", "Jeep", "Chrysler"]
+
 @router.get("/config")
 async def get_vehicles_config(db: AsyncSession = Depends(get_db)):
     """
     Получить дерево конфигурации автомобилей для фильтра:
     Make -> Model -> Year -> Engine
+    ТОЛЬКО АМЕРИКАНСКИЕ МАРКИ: RAM, Dodge, Jeep, Chrysler
     """
-    # Запрашиваем все уникальные авто
-    result = await db.execute(select(models.Vehicle))
+    # Запрашиваем только американские авто
+    result = await db.execute(
+        select(models.Vehicle).where(models.Vehicle.make.in_(AMERICAN_MAKES))
+    )
     vehicles = result.scalars().all()
     
     # Строим структуру:
