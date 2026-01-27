@@ -271,8 +271,8 @@ async def get_all_categories(db: AsyncSession = Depends(get_db)):
 
 @router.get("/categories/tree")
 async def get_categories_tree(db: AsyncSession = Depends(get_db)):
-    """Получить дерево категорий"""
-    # Загружаем все категории
+    """Получить дерево категорий (отсортировано по алфавиту)"""
+    # Загружаем все категории СОРТИРОВАННЫЕ ПО АЛФАВИТУ
     result = await db.execute(
         select(models.Category).order_by(models.Category.name)
     )
@@ -297,6 +297,13 @@ async def get_categories_tree(db: AsyncSession = Depends(get_db)):
             root_cats.append(cat_dict[cat.id])
         elif cat.parent_id in cat_dict:
             cat_dict[cat.parent_id]["children"].append(cat_dict[cat.id])
+    
+    # Сортируем корневые категории по алфавиту
+    root_cats.sort(key=lambda x: x["name"])
+    
+    # Сортируем подкатегории внутри каждой корневой
+    for cat in root_cats:
+        cat["children"].sort(key=lambda x: x["name"])
     
     return root_cats
 

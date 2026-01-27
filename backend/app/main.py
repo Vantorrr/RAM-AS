@@ -864,7 +864,10 @@ async def upload_multiple_images(files: List[UploadFile] = File(...)):
 
 @app.get("/categories/tree", response_model=List[schemas.CategoryTree])
 async def get_categories_tree(db: AsyncSession = Depends(database.get_db)):
-    result = await db.execute(select(models.Category))
+    # Получаем категории СОРТИРОВАННЫЕ ПО АЛФАВИТУ
+    result = await db.execute(
+        select(models.Category).order_by(models.Category.name)
+    )
     categories = result.scalars().all()
     
     # Строим словарь категорий вручную, без from_orm
@@ -887,6 +890,13 @@ async def get_categories_tree(db: AsyncSession = Depends(database.get_db)):
         else:
             if cat.parent_id in cat_dict:
                 cat_dict[cat.parent_id].children.append(cat_dict[cat.id])
+    
+    # Сортируем корневые категории по алфавиту
+    root_cats.sort(key=lambda x: x.name)
+    
+    # Сортируем подкатегории внутри каждой корневой
+    for cat in root_cats:
+        cat.children.sort(key=lambda x: x.name)
                 
     return root_cats
 
