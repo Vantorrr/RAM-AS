@@ -640,7 +640,7 @@ function AdminContent() {
   }, [])
 
   // Upload image(s) - поддержка нескольких файлов
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isMain: boolean = true) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0 || !editingProduct) return
     
@@ -681,25 +681,27 @@ function AdminContent() {
     }
     
     if (uploadedUrls.length > 0) {
-      if (isMain) {
-        // Главное фото - первый файл, остальные в галерею
-        const newImageUrl = uploadedUrls[0]
-        const additionalImages = uploadedUrls.slice(1)
-        const currentImages = editingProduct.images || []
+      // Используем функциональное обновление для получения актуального состояния!
+      setEditingProduct(prev => {
+        if (!prev) return prev
         
-        setEditingProduct({ 
-          ...editingProduct, 
-          image_url: newImageUrl,
-          images: [...currentImages, ...additionalImages]
-        })
-      } else {
-        // Добавляем в галерею
-        const currentImages = editingProduct.images || []
-        setEditingProduct({ 
-          ...editingProduct, 
-          images: [...currentImages, ...uploadedUrls]
-        })
-      }
+        const currentImages = prev.images || []
+        
+        if (!prev.image_url) {
+          // Нет главного фото - первый загруженный становится главным
+          return {
+            ...prev,
+            image_url: uploadedUrls[0],
+            images: [...currentImages, ...uploadedUrls.slice(1)]
+          }
+        } else {
+          // Есть главное фото - все новые добавляем в галерею
+          return {
+            ...prev,
+            images: [...currentImages, ...uploadedUrls]
+          }
+        }
+      })
       alert(`✅ Загружено ${uploadedUrls.length} фото!`)
     } else {
       alert("❌ Не удалось загрузить фото")
@@ -1643,7 +1645,7 @@ function AdminContent() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => handleImageUpload(e, !editingProduct.image_url)}
+                    onChange={handleImageUpload}
                     className="hidden"
                   />
                 </label>
@@ -1858,7 +1860,7 @@ function AdminContent() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => handleImageUpload(e, !editingProduct?.image_url)}
+                    onChange={handleImageUpload}
                     className="hidden"
                   />
                 </label>
