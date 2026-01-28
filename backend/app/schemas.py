@@ -58,6 +58,7 @@ class ProductBase(BaseModel):
     is_in_stock: bool = True
     stock_quantity: int = 0
     image_url: Optional[str] = None
+    images: Optional[List[str]] = None  # Массив дополнительных фото
     is_preorder: bool = False
     is_installment_available: bool = False # New field
     category_id: Optional[int] = None
@@ -75,6 +76,7 @@ class ProductUpdate(BaseModel):
     is_in_stock: Optional[bool] = None
     stock_quantity: Optional[int] = None
     image_url: Optional[str] = None
+    images: Optional[List[str]] = None  # Массив дополнительных фото
     is_preorder: Optional[bool] = None
     is_installment_available: Optional[bool] = None
     category_id: Optional[int] = None

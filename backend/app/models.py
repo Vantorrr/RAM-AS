@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Text, Table, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Text, Table, Enum as SQLEnum, JSON
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from .database import Base
@@ -78,7 +78,8 @@ class Product(Base):
     price_rub = Column(Float, nullable=True)
     is_in_stock = Column(Boolean, default=True)
     stock_quantity = Column(Integer, default=0)
-    image_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)  # Главное фото
+    images = Column(JSON, nullable=True, default=list)  # Дополнительные фото (массив URL)
     is_preorder = Column(Boolean, default=False)
     is_installment_available = Column(Boolean, default=False)
     

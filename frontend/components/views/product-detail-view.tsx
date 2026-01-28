@@ -19,6 +19,7 @@ interface Product {
   price_rub: number
   price_usd?: number
   image_url: string
+  images?: string[]  // Дополнительные фото (галерея)
   is_in_stock: boolean
   stock_quantity: number
   is_installment_available?: boolean
@@ -40,6 +41,7 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [added, setAdded] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const addItem = useCartStore((state) => state.addItem)
 
   useEffect(() => {
@@ -117,10 +119,10 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
         </Button>
       </div>
 
-      {/* Image */}
+      {/* Image Gallery */}
       <div className="relative aspect-[4/3] w-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center p-4">
         <Image
-          src={product.image_url || "/logo_new.png"}
+          src={selectedImage || product.image_url || "/logo_new.png"}
           alt={product.name}
           fill
           className={`transition-all duration-500 object-contain ${!product.image_url ? "p-12 opacity-50" : "p-2"}`}
@@ -136,6 +138,36 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
           </Badge>
         )}
       </div>
+      
+      {/* Миниатюры фото */}
+      {((product.images && product.images.length > 0) || product.image_url) && (
+        <div className="flex gap-2 px-4 py-2 overflow-x-auto">
+          {/* Главное фото */}
+          {product.image_url && (
+            <button
+              onClick={() => setSelectedImage(null)}
+              className={`relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
+                !selectedImage ? 'border-green-500' : 'border-white/10 opacity-60 hover:opacity-100'
+              }`}
+            >
+              <Image src={product.image_url} alt="Фото 1" fill className="object-cover" />
+            </button>
+          )}
+          
+          {/* Дополнительные фото */}
+          {product.images?.map((url, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSelectedImage(url)}
+              className={`relative w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
+                selectedImage === url ? 'border-green-500' : 'border-white/10 opacity-60 hover:opacity-100'
+              }`}
+            >
+              <Image src={url} alt={`Фото ${idx + 2}`} fill className="object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div className="px-4 pt-6 space-y-6">

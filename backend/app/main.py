@@ -423,6 +423,13 @@ async def startup():
         except Exception as e:
             print(f"⚠️ display_order column: {e}")
         
+        # Галерея фото товаров
+        try:
+            await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSON DEFAULT '[]'"))
+            print("✅ Added images column to products")
+        except Exception as e:
+            print(f"⚠️ images column: {e}")
+        
         # Миграции для категорий
         try:
             await conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES categories(id)"))

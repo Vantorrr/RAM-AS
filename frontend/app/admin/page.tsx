@@ -31,6 +31,7 @@ interface Product {
   part_number: string
   price_rub: number
   image_url: string | null
+  images?: string[] | null  // Дополнительные фото (галерея)
   is_in_stock: boolean
   is_installment_available: boolean
   stock_quantity: number
@@ -638,47 +639,73 @@ function AdminContent() {
     }
   }, [])
 
-  // Upload image
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !editingProduct) return
+  // Upload image(s) - поддержка нескольких файлов
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isMain: boolean = true) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !editingProduct) return
     
-    // Проверка типа файла
-    if (!file.type.startsWith('image/')) {
-      alert("❌ Можно загружать только изображения (JPG, PNG, GIF, WebP)")
-      e.target.value = '' // Очищаем input
-      return
-    }
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    const uploadedUrls: string[] = []
     
-    // Проверка размера файла (максимум 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB в байтах
-    if (file.size > maxSize) {
-      alert("❌ Размер файла не должен превышать 5MB")
-      e.target.value = '' // Очищаем input
-      return
-    }
-    
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    try {
-      const res = await fetch(`${API_URL}/upload/image`, {
-        method: 'POST',
-        body: formData
-      })
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       
-      if (res.ok) {
-        const data = await res.json()
-        setEditingProduct({ ...editingProduct, image_url: data.url })
-        alert("✅ Фото загружено!")
-      } else {
-        alert("❌ Ошибка загрузки фото")
+      // Проверка типа файла
+      if (!file.type.startsWith('image/')) {
+        alert(`❌ Файл "${file.name}" не является изображением`)
+        continue
       }
-    } catch (err) {
-      alert("❌ Ошибка сети")
-    } finally {
-      e.target.value = '' // Очищаем input для возможности повторной загрузки того же файла
+      
+      // Проверка размера
+      if (file.size > maxSize) {
+        alert(`❌ Файл "${file.name}" больше 5MB`)
+        continue
+      }
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      try {
+        const res = await fetch(`${API_URL}/upload/image`, {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          uploadedUrls.push(data.url)
+        }
+      } catch (err) {
+        console.error('Upload error:', err)
+      }
     }
+    
+    if (uploadedUrls.length > 0) {
+      if (isMain) {
+        // Главное фото - первый файл, остальные в галерею
+        const newImageUrl = uploadedUrls[0]
+        const additionalImages = uploadedUrls.slice(1)
+        const currentImages = editingProduct.images || []
+        
+        setEditingProduct({ 
+          ...editingProduct, 
+          image_url: newImageUrl,
+          images: [...currentImages, ...additionalImages]
+        })
+      } else {
+        // Добавляем в галерею
+        const currentImages = editingProduct.images || []
+        setEditingProduct({ 
+          ...editingProduct, 
+          images: [...currentImages, ...uploadedUrls]
+        })
+      }
+      alert(`✅ Загружено ${uploadedUrls.length} фото!`)
+    } else {
+      alert("❌ Не удалось загрузить фото")
+    }
+    
+    e.target.value = '' // Очищаем input для возможности повторной загрузки того же файла
   }
 
   // Save product
@@ -707,6 +734,7 @@ function AdminContent() {
           stock_quantity: editingProduct.stock_quantity,
           category_id: editingProduct.category_id,
           image_url: editingProduct.image_url,
+          images: editingProduct.images || [],
           is_in_stock: editingProduct.is_in_stock,
           is_installment_available: editingProduct.is_installment_available
         })
@@ -1555,18 +1583,55 @@ function AdminContent() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
                 <ImageIcon className="h-3 w-3 inline mr-1" />
-                Фото товара
+                Фото товара (до 10 шт)
               </label>
               
-              {editingProduct.image_url && (
-                <div className="mb-2 relative w-32 h-32 rounded-lg overflow-hidden bg-white/5">
-                  <img 
-                    src={editingProduct.image_url} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {/* Галерея загруженных фото */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {/* Главное фото */}
+                {editingProduct.image_url && (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/5 border-2 border-green-500">
+                    <img src={editingProduct.image_url} alt="Главное" className="w-full h-full object-cover" />
+                    <span className="absolute top-0 left-0 bg-green-500 text-white text-[8px] px-1">Главное</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Перемещаем первое фото из галереи в главное
+                        const newMain = editingProduct.images?.[0] || null
+                        const newImages = editingProduct.images?.slice(1) || []
+                        setEditingProduct({...editingProduct, image_url: newMain, images: newImages})
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl"
+                    >×</button>
+                  </div>
+                )}
+                
+                {/* Дополнительные фото */}
+                {editingProduct.images?.map((url, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                    <img src={url} alt={`Фото ${idx + 2}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newImages = editingProduct.images?.filter((_, i) => i !== idx) || []
+                        setEditingProduct({...editingProduct, images: newImages})
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl"
+                    >×</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Сделать главным
+                        const oldMain = editingProduct.image_url
+                        const newImages = editingProduct.images?.filter((_, i) => i !== idx) || []
+                        if (oldMain) newImages.unshift(oldMain)
+                        setEditingProduct({...editingProduct, image_url: url, images: newImages})
+                      }}
+                      className="absolute bottom-0 left-0 bg-green-500/80 text-white text-[8px] px-1 rounded-tr"
+                    >⭐</button>
+                  </div>
+                ))}
+              </div>
               
               <div className="flex gap-2 mb-2">
                 <label className="flex-1 cursor-pointer">
@@ -1577,7 +1642,8 @@ function AdminContent() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    multiple
+                    onChange={(e) => handleImageUpload(e, !editingProduct.image_url)}
                     className="hidden"
                   />
                 </label>
@@ -1734,18 +1800,53 @@ function AdminContent() {
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">
                 <ImageIcon className="h-3 w-3 inline mr-1" />
-                Фото товара
+                Фото товара (до 10 шт)
               </label>
               
-              {editingProduct?.image_url && (
-                <div className="mb-2 relative w-32 h-32 rounded-lg overflow-hidden bg-white/5">
-                  <img 
-                    src={editingProduct.image_url} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
+              {/* Галерея загруженных фото */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {/* Главное фото */}
+                {editingProduct?.image_url && (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/5 border-2 border-green-500">
+                    <img src={editingProduct.image_url} alt="Главное" className="w-full h-full object-cover" />
+                    <span className="absolute top-0 left-0 bg-green-500 text-white text-[8px] px-1">Главное</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newMain = editingProduct.images?.[0] || null
+                        const newImages = editingProduct.images?.slice(1) || []
+                        setEditingProduct({...(editingProduct || {} as Product), image_url: newMain, images: newImages})
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl"
+                    >×</button>
+                  </div>
+                )}
+                
+                {/* Дополнительные фото */}
+                {editingProduct?.images?.map((url, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/5 border border-white/10">
+                    <img src={url} alt={`Фото ${idx + 2}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newImages = editingProduct?.images?.filter((_, i) => i !== idx) || []
+                        setEditingProduct({...(editingProduct || {} as Product), images: newImages})
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-bl"
+                    >×</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const oldMain = editingProduct?.image_url
+                        const newImages = editingProduct?.images?.filter((_, i) => i !== idx) || []
+                        if (oldMain) newImages.unshift(oldMain)
+                        setEditingProduct({...(editingProduct || {} as Product), image_url: url, images: newImages})
+                      }}
+                      className="absolute bottom-0 left-0 bg-green-500/80 text-white text-[8px] px-1 rounded-tr"
+                    >⭐</button>
+                  </div>
+                ))}
+              </div>
               
               <div className="flex gap-2 mb-2">
                 <label className="flex-1 cursor-pointer">
@@ -1756,7 +1857,8 @@ function AdminContent() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    multiple
+                    onChange={(e) => handleImageUpload(e, !editingProduct?.image_url)}
                     className="hidden"
                   />
                 </label>
@@ -1823,6 +1925,7 @@ function AdminContent() {
                     stock_quantity: editingProduct.stock_quantity || 0,
                     category_id: editingProduct.category_id || flattenCategories(categories)[0]?.id || 1,
                     image_url: editingProduct.image_url,
+                    images: editingProduct.images || [],
                     is_in_stock: editingProduct.is_in_stock || false,
                     is_installment_available: editingProduct.is_installment_available || false,
                     description: '',
