@@ -595,6 +595,10 @@ async def update_product(
     db: AsyncSession = Depends(database.get_db)
 ):
     """Обновить товар"""
+    print(f"📝 Обновление товара {product_id}")
+    print(f"📦 Данные: {product_update.model_dump()}")
+    print(f"📷 images: {product_update.images}")
+    
     # Проверяем дубликат part_number (если меняется)
     if product_update.part_number:
         existing = await crud.get_product_by_part_number(db, part_number=product_update.part_number)

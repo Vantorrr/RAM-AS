@@ -57,7 +57,11 @@ async def update_product(db: AsyncSession, product_id: int, product_update: sche
     
     # Обновляем только те поля, которые переданы
     update_data = product_update.model_dump(exclude_unset=True)
+    print(f"🔧 update_data: {update_data}")
+    print(f"📷 'images' in update_data: {'images' in update_data}")
+    
     for field, value in update_data.items():
+        print(f"  → {field} = {value}")
         setattr(db_product, field, value)
     
     await db.commit()
