@@ -57,12 +57,12 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
       className="group relative overflow-hidden border-white/5 bg-white/5 backdrop-blur-sm transition-all hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.5)] cursor-pointer flex flex-col h-full"
       onClick={() => onClick?.(product.id)}
     >
-      <div className="relative h-32 w-full bg-black/20 shrink-0">
+      <div className="relative h-32 w-full bg-gradient-to-b from-zinc-800/50 to-zinc-900/50 shrink-0 p-2">
         <Image
           src={product.image_url || "/logo_new.png"}
           alt={product.name}
           fill
-          className={`transition-transform duration-500 group-hover:scale-110 ${!product.image_url ? "object-contain p-6 opacity-40" : "object-cover"}`}
+          className={`transition-transform duration-500 group-hover:scale-105 object-contain ${!product.image_url ? "p-6 opacity-40" : "p-1"}`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         

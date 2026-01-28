@@ -118,12 +118,12 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
       </div>
 
       {/* Image */}
-      <div className="relative aspect-square w-full bg-black/20 flex items-center justify-center">
+      <div className="relative aspect-[4/3] w-full bg-gradient-to-b from-zinc-900 to-black flex items-center justify-center p-4">
         <Image
           src={product.image_url || "/logo_new.png"}
           alt={product.name}
           fill
-          className={`transition-all duration-500 ${!product.image_url ? "object-contain p-12 opacity-50" : "object-cover"}`}
+          className={`transition-all duration-500 object-contain ${!product.image_url ? "p-12 opacity-50" : "p-2"}`}
         />
         {!product.is_in_stock && (
           <Badge variant="destructive" className="absolute top-4 right-4 shadow-lg">
