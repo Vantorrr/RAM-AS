@@ -55,13 +55,16 @@ async def update_product(db: AsyncSession, product_id: int, product_update: sche
     if not db_product:
         return None
     
-    # Обновляем только те поля, которые переданы
-    update_data = product_update.model_dump(exclude_unset=True)
+    # Обновляем только те поля, которые переданы (exclude_none вместо exclude_unset!)
+    update_data = product_update.model_dump(exclude_none=True)
+    
+    # Но images может быть пустым массивом - это валидное значение!
+    if product_update.images is not None:
+        update_data['images'] = product_update.images
+    
     print(f"🔧 update_data: {update_data}")
-    print(f"📷 'images' in update_data: {'images' in update_data}")
     
     for field, value in update_data.items():
-        print(f"  → {field} = {value}")
         setattr(db_product, field, value)
     
     await db.commit()
