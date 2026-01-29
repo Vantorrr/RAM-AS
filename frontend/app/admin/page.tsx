@@ -259,6 +259,11 @@ function AdminContent() {
     }
   }, [])
 
+  // Загружаем категории при монтировании
+  useEffect(() => {
+    loadCategories()
+  }, [loadCategories])
+
   // Flatten categories tree (для селекта категорий)
   const flattenCategories = (cats: any[], level = 0): any[] => {
     let result: any[] = []
