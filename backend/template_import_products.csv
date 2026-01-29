@@ -1,11 +1,4 @@
-name,part_number,price_rub,category_name,stock_quantity,manufacturer,image_url,is_in_stock,is_installment_available,description
-Масло моторное MOBIL 1 5W-30 4л,550040295,3500,Масла моторные,15,MOBIL,https://example.com/oil.jpg,TRUE,TRUE,Синтетическое моторное масло премиум класса для американских автомобилей
-Фильтр воздушный K&N 33-2387,33-2387,4200,Фильтры воздушные,8,K&N,https://example.com/filter.jpg,TRUE,FALSE,Спортивный воздушный фильтр многоразовый
-Свечи зажигания NGK 5464 LFR6AIX (комплект 8шт),LFR6AIX,12000,Свечи зажигания,5,NGK,,TRUE,TRUE,Иридиевые свечи для двигателей HEMI 5.7L
-Тормозные колодки передние HAWK HB453,HB453-570,8500,Колодки тормозные передние,12,HAWK Performance,,TRUE,TRUE,Керамические тормозные колодки для RAM 1500
-Амортизатор передний BILSTEIN B6 24-186728,24-186728,18000,Амортизаторы передние,4,BILSTEIN,,TRUE,TRUE,Газовый амортизатор для Jeep Wrangler JK
-Радиатор охлаждения DENSO 221-9212,221-9212,25000,Радиаторы,3,DENSO,,TRUE,FALSE,Алюминиевый радиатор для RAM 2500 Diesel
-Генератор 160A BOSCH AL0892X,AL0892X,32000,Генераторы,2,BOSCH,,TRUE,TRUE,Восстановленный генератор 160A для Dodge Charger
-Коробка передач АКПП 68RFE (восстановленная),68RFE-REMAN,180000,Коробки передач автоматические,1,OEM,,TRUE,FALSE,Восстановленная АКПП 68RFE для RAM 2500/3500
-Крышка кузова LUX SE (черная),UC3086L-PX8,315000,Крышки кузова,1,UnderCover,,TRUE,TRUE,Жесткая трехсекционная крышка для RAM 1500 2018+
-Прокладка ГБЦ FELPRO HS26225PT,HS26225PT,8500,Прокладки ГБЦ,6,FELPRO,,TRUE,FALSE,Прокладка головки блока цилиндров для HEMI 5.7L
+name,part_number,price_rub,category_name,stock_quantity,manufacturer,image_url,is_in_stock,is_installment_available
+Масло моторное MOBIL 1 5W-30 4л,550040295,3500,Масла моторные,15,MOBIL,https://example.com/oil.jpg,TRUE,TRUE
+Фильтр воздушный K&N 33-2387,33-2387,4200,Фильтры воздушные,8,K&N,,TRUE,FALSE
+Ремень приводной Gates K060925,K060925,2800,Ремни приводные,20,Gates,,TRUE,FALSE

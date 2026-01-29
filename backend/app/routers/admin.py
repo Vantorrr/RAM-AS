@@ -225,24 +225,30 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         best_score = 0
         
         for cat in category_data:
+            # Пропускаем "Прочее" (id=177) - это fallback
+            if cat['id'] == 177:
+                continue
+            
             # Считаем совпадения ключевых слов
             matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
             
-            if matches > 0:
-                # Вычисляем score:
-                # - Количество совпадений (главный фактор)
-                # - Глубина вложенности (подкатегории приоритетнее)
-                # - Процент покрытия ключевых слов категории
+            # УЛУЧШЕННЫЙ АЛГОРИТМ:
+            # Минимум 2 совпадения для подкатегорий
+            # Минимум 1 совпадение для родительских
+            if matches >= 2 or (matches >= 1 and cat['depth'] == 0):
                 coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                score = (matches * 100) + (cat['depth'] * 10) + (coverage * 5)
+                # Подкатегории получают +50 баллов (приоритет)
+                score = (matches * 100) + (cat['depth'] * 50) + (coverage * 10)
                 
                 if score > best_score:
                     best_score = score
                     best_match = cat['id']
         
-        # Если нашли категорию - обновляем
+        # Fallback на "Прочее" (id=177) если не нашли категорию
+        target_cat = best_match or 177
+        updates.append((target_cat, pid))
+        
         if best_match:
-            updates.append((best_match, pid))
             distributed += 1
         else:
             not_distributed += 1
@@ -658,15 +664,29 @@ async def import_products_from_excel(
                     best_score = 0
                     
                     for cat in category_data:
+                        # Пропускаем категорию "Прочее" - это fallback
+                        if cat['id'] == 177:
+                            continue
+                        
                         matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
-                        if matches > 0:
+                        
+                        # УЛУЧШЕННЫЙ SCORING:
+                        # 1. Минимум 2 совпадения для подкатегорий (строже фильтр)
+                        # 2. Подкатегории имеют приоритет
+                        # 3. Учитываем покрытие ключевых слов категории
+                        
+                        if matches >= 2 or (matches >= 1 and cat['depth'] == 0):
                             coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                            score = (matches * 100) + (cat['depth'] * 10) + (coverage * 5)
+                            # Подкатегории (depth=1) получают +50 баллов
+                            # Больше совпадений = лучше
+                            score = (matches * 100) + (cat['depth'] * 50) + (coverage * 10)
+                            
                             if score > best_score:
                                 best_score = score
                                 best_match = cat['id']
                     
-                    category_id = best_match or 1  # Default fallback
+                    # Fallback на "Прочее" если не нашли подходящую категорию
+                    category_id = best_match or 177
                 
                 # Собираем данные товара
                 product_data = {
