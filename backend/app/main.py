@@ -929,7 +929,11 @@ async def get_all_orders(
         .order_by(models.Order.created_at.desc())
         .offset(skip)
         .limit(limit)
-        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
+        .options(
+            selectinload(models.Order.items)
+            .selectinload(models.OrderItem.product)
+            .selectinload(models.Product.category)  # ← FIX: загружаем category!
+        )
     )
     return result.scalars().all()
 
@@ -947,7 +951,11 @@ async def get_user_orders(user_telegram_id: str, db: AsyncSession = Depends(data
         select(models.Order)
         .where(models.Order.user_telegram_id == user_telegram_id)
         .order_by(models.Order.created_at.desc())
-        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
+        .options(
+            selectinload(models.Order.items)
+            .selectinload(models.OrderItem.product)
+            .selectinload(models.Product.category)  # ← FIX: загружаем category!
+        )
     )
     return result.scalars().all()
 
@@ -996,7 +1004,11 @@ async def create_order(
     result = await db.execute(
         select(models.Order)
         .where(models.Order.id == order_id)
-        .options(selectinload(models.Order.items).selectinload(models.OrderItem.product))
+        .options(
+            selectinload(models.Order.items)
+            .selectinload(models.OrderItem.product)
+            .selectinload(models.Product.category)  # ← FIX: загружаем category!
+        )
     )
     db_order = result.scalar_one()
     
