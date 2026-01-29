@@ -9,7 +9,7 @@ import { CheckoutView } from "@/components/views/checkout-view"
 import { ProductDetailView } from "@/components/views/product-detail-view"
 import { HomeView } from "@/components/views/home-view"
 import { BaraholkaView } from "@/components/views/baraholka-view"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { initTelegramWebApp } from "@/lib/telegram"
 import { useFavoritesStore } from "@/lib/favorites-store"
 
@@ -31,12 +31,16 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("home")
   const [showCheckout, setShowCheckout] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  
+  // СОХРАНЯЕМ позицию скролла и состояние CatalogView
+  const catalogScrollRef = useRef<number>(0)
 
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />
   }
 
   const handleProductClick = (productId: number) => {
+    console.log('🛍️ Product clicked:', productId)
     setSelectedProductId(productId)
   }
 
@@ -52,7 +56,10 @@ export default function Home() {
           <div className="absolute inset-0 z-50 bg-background">
             <ProductDetailView 
               productId={selectedProductId} 
-              onBack={() => setSelectedProductId(null)} 
+              onBack={() => {
+                console.log('⬅️ ProductDetailView onBack - closing detail view')
+                setSelectedProductId(null)
+              }} 
             />
           </div>
         )}

@@ -63,6 +63,12 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
     const [breadcrumbs, setBreadcrumbs] = useState<Category[]>([])
     
+    // DEBUG
+    useEffect(() => {
+        console.log('🔍 CatalogView MOUNTED')
+        return () => console.log('💀 CatalogView UNMOUNTED')
+    }, [])
+    
     // Products
     const [products, setProducts] = useState<Product[]>([])
     const [loadingProducts, setLoadingProducts] = useState(false)
@@ -178,18 +184,27 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
 
     // Handle category click
     const handleCategoryClick = (cat: Category) => {
+        console.log('📂 Category clicked:', cat.name, { 
+            hasChildren: !!cat.children?.length,
+            currentBreadcrumbs: breadcrumbs.map(b => b.name)
+        })
+        
         setIsSearchMode(false)
         setSearchQuery("")
         
         // Всегда устанавливаем категорию
-        setBreadcrumbs([...breadcrumbs, cat])
+        const newBreadcrumbs = [...breadcrumbs, cat]
+        console.log('  → New breadcrumbs:', newBreadcrumbs.map(b => b.name))
+        setBreadcrumbs(newBreadcrumbs)
         setSelectedCategory(cat)
         setCurrentPage(0)
         
         // Загружаем товары ТОЛЬКО если нет подкатегорий
         if (!cat.children || cat.children.length === 0) {
+            console.log('  → Loading products for category:', cat.id)
             fetchProducts(cat.id, undefined, 0, false)
         } else {
+            console.log('  → Has subcategories, showing them')
             // Если есть подкатегории, очищаем товары
             setProducts([])
         }
@@ -209,7 +224,15 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
 
     // Handle back
     const handleBack = () => {
+        console.log('⬅️ handleBack called', { 
+            isSearchMode, 
+            breadcrumbsLength: breadcrumbs.length,
+            breadcrumbs: breadcrumbs.map(b => b.name),
+            selectedCategory: selectedCategory?.name
+        })
+        
         if (isSearchMode) {
+            console.log('  ↩️ Exit search mode')
             setIsSearchMode(false)
             setProducts([])
             setSearchQuery("")
@@ -218,19 +241,24 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         }
         
         if (breadcrumbs.length > 1) {
+            console.log('  ↩️ Go back to previous category')
             const newBreadcrumbs = breadcrumbs.slice(0, -1)
             const previousCategory = newBreadcrumbs[newBreadcrumbs.length - 1]
+            console.log('  → Previous category:', previousCategory.name)
             setBreadcrumbs(newBreadcrumbs)
             setSelectedCategory(previousCategory)
             setCurrentPage(0)
             
             // Загружаем товары предыдущей категории (если нет подкатегорий)
             if (!previousCategory.children || previousCategory.children.length === 0) {
+                console.log('  → Loading products for:', previousCategory.id)
                 fetchProducts(previousCategory.id, undefined, 0, false)
             } else {
+                console.log('  → Has subcategories, clearing products')
                 setProducts([])
             }
         } else {
+            console.log('  ↩️ Back to main catalog')
             setBreadcrumbs([])
             setSelectedCategory(null)
             setProducts([])
@@ -283,11 +311,24 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
     const hasMore = products.length < totalCount
 
     // ============ RENDER ============
+    
+    // DEBUG: Логируем состояние перед рендером
+    const hasSubcategories = selectedCategory?.children && selectedCategory.children.length > 0
+    console.log('🎨 CatalogView render:', {
+        selectedCategory: selectedCategory?.name,
+        hasSubcategories,
+        productsCount: products.length,
+        breadcrumbs: breadcrumbs.map(b => b.name),
+        isSearchMode,
+        willShowProductsView: (!hasSubcategories && selectedCategory && products.length > 0) || (!hasSubcategories && selectedCategory && loadingProducts) || isSearchMode,
+        willShowSubcategoriesView: !!hasSubcategories,
+        willShowMainCatalog: !selectedCategory && !isSearchMode
+    })
 
     // Products view (category selected or search mode)
     // НЕ показываем товары, если есть подкатегории!
-    const hasSubcategories = selectedCategory?.children && selectedCategory.children.length > 0
     if ((!hasSubcategories && selectedCategory && products.length > 0) || (!hasSubcategories && selectedCategory && loadingProducts) || isSearchMode) {
+        console.log('  → Rendering PRODUCTS VIEW')
         return (
             <div className="flex flex-col pb-24 min-h-screen">
                 {/* Header */}
@@ -381,6 +422,7 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
 
     // Subcategories view
     if (selectedCategory?.children && selectedCategory.children.length > 0) {
+        console.log('  → Rendering SUBCATEGORIES VIEW')
         return (
             <div className="flex flex-col pb-24 min-h-screen">
                 <div className="sticky top-0 z-10 bg-background border-b border-white/5 px-4 py-3 flex items-center gap-3">
@@ -406,6 +448,7 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
     }
 
     // Main catalog view
+    console.log('  → Rendering MAIN CATALOG VIEW')
     return (
         <div className="flex flex-col pb-24 min-h-screen">
             <div className="sticky top-0 z-10 bg-background border-b border-white/5 px-4 py-4">
