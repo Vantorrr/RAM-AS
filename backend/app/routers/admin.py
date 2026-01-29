@@ -285,21 +285,21 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
                 cat_has = any(v in cat['original_name'] for v in variants)
                 product_has = any(v in product_text_lower for v in variants)
                 if cat_has and product_has:
-                    phrase_bonus += 50  # Бонус за каждое совпадение по спецправилам
+                    phrase_bonus += 50
             
-                        # ФИНАЛЬНЫЙ SCORING:
-                        # Разрешаем если:
-                        # - Точное совпадение фразы (score >= 1000)
-                        # - 2+ совпадения слов
-                        # - 1 совпадение + есть спецправила (phrase_bonus > 0)
-                        
-                        if score >= 1000 or matches >= 2 or (matches >= 1 and phrase_bonus > 0):
-                            coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                            total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
-                            
-                            if total_score > best_score:
-                                best_score = total_score
-                                best_match = cat['id']
+            # ФИНАЛЬНЫЙ SCORING:
+            # Разрешаем если:
+            # - Точное совпадение фразы (score >= 1000)
+            # - 2+ совпадения слов
+            # - 1 совпадение + есть спецправила (phrase_bonus > 0)
+            
+            if score >= 1000 or matches >= 2 or (matches >= 1 and phrase_bonus > 0):
+                coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
+                total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
+                
+                if total_score > best_score:
+                    best_score = total_score
+                    best_match = cat['id']
         
         # Fallback на "Прочее" (id=177) если не нашли категорию
         target_cat = best_match or 177
