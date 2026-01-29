@@ -179,12 +179,38 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         'the', 'a', 'an', 'and', 'or', 'but', 'for', 'with', 'to', 'of', 'in'
     }
     
+    # АББРЕВИАТУРЫ (КРИТИЧНО ДЛЯ РАСПОЗНАВАНИЯ!)
+    ABBREVIATIONS = {
+        'гбц': 'головка блока цилиндров',
+        'грм': 'газораспределительный механизм',
+        'гур': 'гидроусилитель руля',
+        'егр': 'клапан рециркуляции',
+        'egr': 'клапан рециркуляции',
+        'abs': 'антиблокировочная система',
+        'esp': 'система стабилизации',
+        'pcv': 'вентиляция картера',
+        'акпп': 'коробка автоматическая',
+        'мкпп': 'коробка механическая',
+        'двс': 'двигатель',
+        'шрус': 'шарнир равных угловых скоростей',
+        'тнвд': 'топливный насос высокого давления',
+    }
+    
     # СПЕЦИАЛЬНЫЕ ПРАВИЛА (точное сопоставление фраз + СИНОНИМЫ)
     EXACT_PHRASES = {
+        # Аббревиатуры и составные слова
+        'гбц': ['гбц', 'головка', 'блок', 'head', 'cylinder head'],
+        'грм': ['грм', 'timing', 'газораспределительн'],
+        'гур': ['гур', 'гидроусилител', 'power steering', 'насос гидроусилителя'],
+        'егр': ['егр', 'egr', 'рециркуляц', 'recirculation'],
+        'pcv': ['pcv', 'вентиляц', 'картер', 'crankcase'],
+        'болт': ['болт', 'болтов', 'bolt'],
+        'гайк': ['гайк', 'nut'],
+        'шпильк': ['шпильк', 'stud'],
+        
         # Ремни
         'ремен': ['ремен', 'ремн', 'belt'],
         'приводн': ['приводн', 'drive'],
-        'грм': ['грм', 'timing', 'газораспределительн'],
         
         # Масла
         'масл': ['масл', 'oil'],
@@ -207,16 +233,22 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         'колодк': ['колодк', 'pad'],
         'диск': ['диск', 'disc', 'rotor'],
         'суппорт': ['суппорт', 'caliper'],
+        'пыльник': ['пыльник', 'boot', 'защитный чехол'],
+        'цилиндр': ['цилиндр', 'cylinder'],
         
         # Подвеска
         'амортизатор': ['амортизатор', 'shock', 'strut'],
         'стойк': ['стойк', 'strut'],
         'рычаг': ['рычаг', 'arm', 'control'],
         'подвеск': ['подвеск', 'suspension'],
-        'сайлентблок': ['сайлентблок', 'сайлетблок', 'втулк', 'silentblock', 'bush'],  # + синоним!
+        'пневмоподвеск': ['пневмоподвеск', 'air suspension', 'пневмо'],
+        'сайлентблок': ['сайлентблок', 'сайлетблок', 'втулк', 'silentblock', 'bush'],
         'втулк': ['втулк', 'bush', 'bushing', 'сайлентблок'],
         'шаров': ['шаров', 'ball', 'joint'],
         'стабилизатор': ['стабилизатор', 'stabilizer', 'sway'],
+        'пружин': ['пружин', 'spring'],
+        'опор': ['опор', 'mount', 'support'],
+        'отбойник': ['отбойник', 'bump stop', 'буфер'],
         
         # Сальники и уплотнения
         'сальник': ['сальник', 'seal', 'oil seal'],
@@ -226,7 +258,7 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         
         # Двигатель
         'радиатор': ['радиатор', 'radiator'],
-        'помп': ['помп', 'pump', 'насос'],
+        'помп': ['помп', 'pump', 'насос', 'water pump'],
         'термостат': ['термостат', 'thermostat'],
         'клапан': ['клапан', 'valve'],
         'направляющ': ['направляющ', 'guide'],
@@ -235,6 +267,16 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         'вкладыш': ['вкладыш', 'bearing', 'вкладыши'],
         'распредвал': ['распредвал', 'camshaft', 'распред'],
         'коленвал': ['коленвал', 'crankshaft', 'колен'],
+        'штанг': ['штанг', 'pushrod', 'толкател'],
+        'толкател': ['толкател', 'pushrod', 'штанг', 'lifter'],
+        'маслосъем': ['маслосъем', 'колпачк', 'valve stem seal'],
+        'колпачк': ['колпачк', 'cap', 'seal'],
+        'патрубок': ['патрубок', 'hose', 'pipe', 'шланг'],
+        'шланг': ['шланг', 'hose', 'патрубок'],
+        'поддон': ['поддон', 'pan', 'oil pan'],
+        'крышк': ['крышк', 'cover'],
+        'заслонк': ['заслонк', 'throttle', 'valve'],
+        'дроссел': ['дроссел', 'throttle'],
         
         # Электрика
         'генератор': ['генератор', 'alternator'],
@@ -242,21 +284,63 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         'аккумулятор': ['аккумулятор', 'battery'],
         'датчик': ['датчик', 'sensor'],
         'катушк': ['катушк', 'coil'],
+        'свечн': ['свечн', 'spark plug', 'свеч'],
+        'модуль': ['модуль', 'module'],
+        'реле': ['реле', 'relay'],
+        'предохранител': ['предохранител', 'fuse'],
         
         # Трансмиссия
         'коробк': ['коробк', 'transmission'],
-        'акпп': ['акпп', 'automatic'],
         'сцеплен': ['сцеплен', 'clutch'],
-        'привод': ['привод', 'shaft', 'axle'],
+        'привод': ['привод', 'shaft', 'axle', 'drive'],
+        'полуос': ['полуос', 'axle shaft'],
+        'карданн': ['карданн', 'driveshaft', 'propeller'],
+        'крестовин': ['крестовин', 'u-joint', 'universal joint'],
         
         # Кондиционер
         'кондиционер': ['кондиционер', 'ac', 'a/c', 'conditioning'],
         'испаритель': ['испаритель', 'evaporator'],
         'компрессор': ['компрессор', 'compressor'],
+        'осушител': ['осушител', 'drier', 'accumulator'],
+        'расширительн': ['расширительн', 'expansion'],
+        
+        # Кузов
+        'бампер': ['бампер', 'bumper'],
+        'крыло': ['крыло', 'fender'],
+        'капот': ['капот', 'hood'],
+        'дверь': ['дверь', 'door'],
+        'замок': ['замок', 'lock'],
+        'ручк': ['ручк', 'handle'],
+        'молдинг': ['молдинг', 'molding', 'trim'],
+        'брызговик': ['брызговик', 'mudguard', 'splash guard'],
+        
+        # Рулевое
+        'наконечник': ['наконечник', 'tie rod end'],
+        'тяг': ['тяг', 'tie rod', 'link'],
+        'рейк': ['рейк', 'rack'],
+        'кулак': ['кулак', 'knuckle'],
+        
+        # Топливная система
+        'форсунк': ['форсунк', 'injector'],
+        'насос': ['насос', 'pump'],
+        'топливопровод': ['топливопровод', 'fuel line'],
+        'адсорбер': ['адсорбер', 'canister', 'charcoal'],
+        'продувк': ['продувк', 'purge'],
+        'бензобак': ['бензобак', 'fuel tank', 'tank'],
     }
+    
+    def expand_abbreviations(text: str) -> str:
+        """Раскрывает аббревиатуры в тексте"""
+        text_lower = text.lower()
+        for abbr, full in ABBREVIATIONS.items():
+            # Ищем аббревиатуру как отдельное слово
+            text_lower = re.sub(rf'\b{abbr}\b', f'{abbr} {full}', text_lower)
+        return text_lower
     
     def extract_keywords(text: str) -> list:
         """Извлекает ключевые слова из текста (без стоп-слов)"""
+        # Раскрываем аббревиатуры
+        text = expand_abbreviations(text)
         clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
         words = clean_text.split()
         keywords = [w for w in words if w not in STOP_WORDS and len(w) >= 3]
@@ -334,20 +418,29 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
                 if cat_has and product_has:
                     phrase_bonus += 50
             
+            # МЕТОД 4: Бонус за аббревиатуры (ГБЦ, ГУР, PCV и т.д.)
+            abbr_bonus = 0
+            for abbr in ABBREVIATIONS.keys():
+                if abbr in cat['original_name'] and abbr in product_text_lower:
+                    abbr_bonus += 200  # Большой бонус за аббревиатуры!
+            
             # ФИНАЛЬНЫЙ SCORING:
             # Разрешаем если:
             # - Точное совпадение фразы (score >= 1000)
             # - 2+ совпадения слов
             # - 1 совпадение + спецправила (phrase_bonus > 0)
-            # - 1 совпадение для подкатегорий (depth=1) если score > 50
+            # - 1 совпадение + аббревиатура (abbr_bonus > 0)
+            # - 1 совпадение для подкатегорий (depth=1)
             
             if (score >= 1000 or 
                 matches >= 2 or 
                 (matches >= 1 and phrase_bonus > 0) or
-                (matches >= 1 and cat['depth'] == 1)):  # Подкатегории - мягче!
+                (matches >= 1 and abbr_bonus > 0) or
+                (matches >= 1 and cat['depth'] == 1)):
                 
                 coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
+                # Увеличиваем вес совпадений keywords (150 вместо 100)
+                total_score = score + (matches * 150) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus + abbr_bonus
                 
                 if total_score > best_score:
                     best_score = total_score
