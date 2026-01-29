@@ -287,20 +287,19 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
                 if cat_has and product_has:
                     phrase_bonus += 50  # Бонус за каждое совпадение по спецправилам
             
-            # ФИНАЛЬНЫЙ SCORING:
-            # - Точное совпадение фразы = 1000 баллов
-            # - Каждое совпадение слова = 100 баллов
-            # - Подкатегория = +100 баллов (приоритет)
-            # - Покрытие ключевых слов = до 20 баллов
-            # - Специальные правила = +50 за каждое
-            
-            if matches >= 2 or score >= 1000:  # Либо точное совпадение, либо 2+ слова
-                coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
-                
-                if total_score > best_score:
-                    best_score = total_score
-                    best_match = cat['id']
+                        # ФИНАЛЬНЫЙ SCORING:
+                        # Разрешаем если:
+                        # - Точное совпадение фразы (score >= 1000)
+                        # - 2+ совпадения слов
+                        # - 1 совпадение + есть спецправила (phrase_bonus > 0)
+                        
+                        if score >= 1000 or matches >= 2 or (matches >= 1 and phrase_bonus > 0):
+                            coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
+                            total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
+                            
+                            if total_score > best_score:
+                                best_score = total_score
+                                best_match = cat['id']
         
         # Fallback на "Прочее" (id=177) если не нашли категорию
         target_cat = best_match or 177
@@ -772,7 +771,11 @@ async def import_products_from_excel(
                                 phrase_bonus += 50
                         
                         # ФИНАЛЬНЫЙ SCORING
-                        if matches >= 2 or score >= 1000:
+                        # Разрешаем если:
+                        # - Точное совпадение фразы (score >= 1000)
+                        # - 2+ совпадения слов
+                        # - 1 совпадение + есть спецправила (phrase_bonus > 0)
+                        if score >= 1000 or matches >= 2 or (matches >= 1 and phrase_bonus > 0):
                             coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
                             total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
                             
