@@ -44,51 +44,59 @@ export default function Home() {
     setActiveTab("catalog")
   }
 
-  const renderView = () => {
-    if (selectedProductId) {
-      return <ProductDetailView 
-        productId={selectedProductId} 
-        onBack={() => setSelectedProductId(null)} 
-      />
-    }
-
-    if (showCheckout) {
-      return <CheckoutView 
-        onBack={() => setShowCheckout(false)} 
-        onSuccess={() => {
-          setShowCheckout(false)
-          setActiveTab("home")
-          alert("Заказ успешно оформлен! Мы свяжемся с вами в ближайшее время.")
-        }}
-      />
-    }
-
-    switch (activeTab) {
-        case "catalog":
-            return <CatalogView onProductClick={handleProductClick} />;
-        case "profile":
-            return <ProfileView onProductClick={handleProductClick} />;
-        case "cart":
-            return <CartView onCheckout={() => setShowCheckout(true)} />;
-        case "marketplace": // <--- RENAMED TO MARKETPLACE
-            return <BaraholkaView onBack={() => setActiveTab("home")} />;
-        case "home":
-        default:
-            return (
-              <HomeView 
-                onCategoryClick={handleCategoryClick}
-                onProductClick={handleProductClick}
-                onViewAllProducts={() => setActiveTab("catalog")}
-              />
-            );
-    }
-  }
-
   return (
     <div className="h-full bg-background text-foreground flex flex-col font-sans selection:bg-primary/30 overflow-hidden">
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          {renderView()}
+        {/* Product Detail - поверх всего */}
+        {selectedProductId && (
+          <div className="absolute inset-0 z-50 bg-background">
+            <ProductDetailView 
+              productId={selectedProductId} 
+              onBack={() => setSelectedProductId(null)} 
+            />
+          </div>
+        )}
+
+        {/* Checkout - поверх всего */}
+        {showCheckout && (
+          <div className="absolute inset-0 z-50 bg-background">
+            <CheckoutView 
+              onBack={() => setShowCheckout(false)} 
+              onSuccess={() => {
+                setShowCheckout(false)
+                setActiveTab("home")
+                alert("Заказ успешно оформлен! Мы свяжемся с вами в ближайшее время.")
+              }}
+            />
+          </div>
+        )}
+
+        {/* Основные вкладки - НЕ размонтируются, просто скрываются! */}
+        <div className={activeTab === "catalog" ? "block" : "hidden"}>
+          <CatalogView onProductClick={handleProductClick} />
+        </div>
+        
+        <div className={activeTab === "profile" ? "block" : "hidden"}>
+          <ProfileView onProductClick={handleProductClick} />
+        </div>
+        
+        <div className={activeTab === "cart" ? "block" : "hidden"}>
+          <CartView onCheckout={() => setShowCheckout(true)} />
+        </div>
+        
+        <div className={activeTab === "marketplace" ? "block" : "hidden"}>
+          <BaraholkaView onBack={() => setActiveTab("home")} />
+        </div>
+        
+        <div className={activeTab === "home" ? "block" : "hidden"}>
+          <HomeView 
+            onCategoryClick={handleCategoryClick}
+            onProductClick={handleProductClick}
+            onViewAllProducts={() => setActiveTab("catalog")}
+          />
+        </div>
       </main>
+      
       {!showCheckout && !selectedProductId && (
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       )}
