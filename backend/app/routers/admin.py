@@ -175,25 +175,62 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
     
     # СТОП-СЛОВА (игнорируем при извлечении ключевых слов)
     STOP_WORDS = {
-        'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о', 
+        'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о', 'за', 'под', 
         'the', 'a', 'an', 'and', 'or', 'but', 'for', 'with', 'to', 'of', 'in'
+    }
+    
+    # СПЕЦИАЛЬНЫЕ ПРАВИЛА (точное сопоставление фраз)
+    EXACT_PHRASES = {
+        'ремен': ['ремен', 'ремн', 'belt'],  # Ремни
+        'приводн': ['приводн', 'drive'],
+        'грм': ['грм', 'timing', 'газораспределительн'],
+        'масл': ['масл', 'oil'],
+        'моторн': ['моторн', 'engine', 'motor'],
+        'трансмиссионн': ['трансмиссионн', 'transmission', 'gear'],
+        'фильтр': ['фильтр', 'filter'],
+        'воздушн': ['воздушн', 'air'],
+        'маслян': ['маслян', 'oil filter'],
+        'топливн': ['топливн', 'fuel'],
+        'салон': ['салон', 'cabin'],
+        'свеч': ['свеч', 'spark', 'plug'],
+        'зажиган': ['зажиган', 'ignition'],
+        'тормоз': ['тормоз', 'brake'],
+        'колодк': ['колодк', 'pad'],
+        'диск': ['диск', 'disc', 'rotor'],
+        'амортизатор': ['амортизатор', 'shock', 'strut'],
+        'стойк': ['стойк', 'strut'],
+        'рычаг': ['рычаг', 'arm', 'control'],
+        'подвеск': ['подвеск', 'suspension'],
+        'радиатор': ['радиатор', 'radiator'],
+        'помп': ['помп', 'pump', 'насос'],
+        'генератор': ['генератор', 'alternator'],
+        'стартер': ['стартер', 'starter'],
+        'аккумулятор': ['аккумулятор', 'battery'],
     }
     
     def extract_keywords(text: str) -> list:
         """Извлекает ключевые слова из текста (без стоп-слов)"""
-        # Убираем спецсимволы, оставляем только буквы и цифры
         clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
-        # Разбиваем на слова
         words = clean_text.split()
-        # Фильтруем стоп-слова и короткие слова (меньше 3 символов)
         keywords = [w for w in words if w not in STOP_WORDS and len(w) >= 3]
         return keywords
+    
+    def normalize_word(word: str) -> str:
+        """Нормализует слово (убирает окончания для лучшего сопоставления)"""
+        # Убираем окончания: ый, ая, ое, ые, ий, яя, ее, ие
+        for ending in ['ый', 'ая', 'ое', 'ые', 'ий', 'яя', 'ее', 'ие', 'ой', 'ых', 'ого', 'ому']:
+            if word.endswith(ending) and len(word) > len(ending) + 2:
+                return word[:-len(ending)]
+        return word
     
     # 3. Подготавливаем категории с ключевыми словами
     category_data = []
     for cat_id, cat_name, cat_slug, parent_id in categories:
         # Извлекаем ключевые слова из названия и slug
-        keywords = extract_keywords(f"{cat_name} {cat_slug}")
+        raw_keywords = extract_keywords(f"{cat_name} {cat_slug}")
+        
+        # Нормализуем ключевые слова (убираем окончания)
+        keywords = [normalize_word(w) for w in raw_keywords]
         
         # Определяем уровень вложенности (подкатегории = более специфичные)
         depth = 0
@@ -203,8 +240,9 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
         category_data.append({
             'id': cat_id,
             'name': cat_name,
+            'original_name': cat_name.lower(),  # Для точного сопоставления фраз
             'keywords': keywords,
-            'depth': depth,  # Чем больше глубина, тем выше приоритет
+            'depth': depth,
             'keyword_count': len(keywords)
         })
     
@@ -218,7 +256,9 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
     for pid, name, part_num, manuf in products:
         # Извлекаем ключевые слова из товара
         product_text = f"{name} {part_num or ''} {manuf or ''}"
-        product_keywords = set(extract_keywords(product_text))
+        product_text_lower = product_text.lower()
+        raw_keywords = extract_keywords(product_text)
+        product_keywords = set([normalize_word(w) for w in raw_keywords])
         
         # Ищем лучшую категорию
         best_match = None
@@ -229,19 +269,37 @@ async def distribute_products_by_categories(db: AsyncSession = Depends(get_db)):
             if cat['id'] == 177:
                 continue
             
-            # Считаем совпадения ключевых слов
+            score = 0
+            
+            # МЕТОД 1: Точное фразовое сопоставление (самый надёжный!)
+            # "Ремни приводные" точно совпадает с "ремни приводные" в товаре
+            if cat['original_name'] in product_text_lower:
+                score += 1000  # Огромный бонус за точное совпадение!
+            
+            # МЕТОД 2: Считаем совпадения нормализованных ключевых слов
             matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
             
-            # УЛУЧШЕННЫЙ АЛГОРИТМ:
-            # Минимум 2 совпадения для подкатегорий
-            # Минимум 1 совпадение для родительских
-            if matches >= 2 or (matches >= 1 and cat['depth'] == 0):
+            # МЕТОД 3: Проверяем специальные правила (например "ремень" + "приводной")
+            phrase_bonus = 0
+            for main_word, variants in EXACT_PHRASES.items():
+                cat_has = any(v in cat['original_name'] for v in variants)
+                product_has = any(v in product_text_lower for v in variants)
+                if cat_has and product_has:
+                    phrase_bonus += 50  # Бонус за каждое совпадение по спецправилам
+            
+            # ФИНАЛЬНЫЙ SCORING:
+            # - Точное совпадение фразы = 1000 баллов
+            # - Каждое совпадение слова = 100 баллов
+            # - Подкатегория = +100 баллов (приоритет)
+            # - Покрытие ключевых слов = до 20 баллов
+            # - Специальные правила = +50 за каждое
+            
+            if matches >= 2 or score >= 1000:  # Либо точное совпадение, либо 2+ слова
                 coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                # Подкатегории получают +50 баллов (приоритет)
-                score = (matches * 100) + (cat['depth'] * 50) + (coverage * 10)
+                total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
                 
-                if score > best_score:
-                    best_score = score
+                if total_score > best_score:
+                    best_score = total_score
                     best_match = cat['id']
         
         # Fallback на "Прочее" (id=177) если не нашли категорию
@@ -602,20 +660,46 @@ async def import_products_from_excel(
         print(f"📁 Категорий в базе: {len(categories)}")
         
         # Функция извлечения ключевых слов
-        STOP_WORDS = {'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о'}
+        STOP_WORDS = {'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о', 'за', 'под'}
+        
+        # СПЕЦИАЛЬНЫЕ ПРАВИЛА
+        EXACT_PHRASES = {
+            'ремен': ['ремен', 'ремн', 'belt'],
+            'приводн': ['приводн', 'drive'],
+            'грм': ['грм', 'timing'],
+            'масл': ['масл', 'oil'],
+            'моторн': ['моторн', 'engine', 'motor'],
+            'трансмиссионн': ['трансмиссионн', 'transmission'],
+            'фильтр': ['фильтр', 'filter'],
+            'воздушн': ['воздушн', 'air'],
+            'маслян': ['маслян', 'oil filter'],
+            'топливн': ['топливн', 'fuel'],
+            'свеч': ['свеч', 'spark'],
+            'тормоз': ['тормоз', 'brake'],
+            'колодк': ['колодк', 'pad'],
+        }
         
         def extract_keywords(text: str) -> list:
             clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
             words = clean_text.split()
             return [w for w in words if w not in STOP_WORDS and len(w) >= 3]
         
+        def normalize_word(word: str) -> str:
+            """Убирает окончания"""
+            for ending in ['ый', 'ая', 'ое', 'ые', 'ий', 'яя', 'ее', 'ие', 'ой', 'ых']:
+                if word.endswith(ending) and len(word) > len(ending) + 2:
+                    return word[:-len(ending)]
+            return word
+        
         # Подготавливаем категории с keywords
         category_data = []
         for cat_id, cat_name, cat_slug, parent_id in categories:
-            keywords = extract_keywords(f"{cat_name} {cat_slug}")
+            raw_keywords = extract_keywords(f"{cat_name} {cat_slug}")
+            keywords = [normalize_word(w) for w in raw_keywords]
             category_data.append({
                 'id': cat_id,
                 'name': cat_name,
+                'original_name': cat_name.lower(),
                 'keywords': keywords,
                 'depth': 1 if parent_id else 0
             })
@@ -655,10 +739,12 @@ async def import_products_from_excel(
                     cat_name = str(row['category_name']).lower().strip()
                     category_id = cat_name_to_id.get(cat_name)
                 
-                # Способ 2: Умный поиск по ключевым словам
+                # Способ 2: Умный поиск по ключевым словам (СУПЕР-ТОЧНЫЙ!)
                 if not category_id:
                     product_text = f"{name} {part_number} {row.get('manufacturer', '')}"
-                    product_keywords = set(extract_keywords(product_text))
+                    product_text_lower = product_text.lower()
+                    raw_keywords = extract_keywords(product_text)
+                    product_keywords = set([normalize_word(w) for w in raw_keywords])
                     
                     best_match = None
                     best_score = 0
@@ -668,24 +754,33 @@ async def import_products_from_excel(
                         if cat['id'] == 177:
                             continue
                         
+                        score = 0
+                        
+                        # МЕТОД 1: Точное фразовое сопоставление
+                        if cat['original_name'] in product_text_lower:
+                            score += 1000  # Огромный бонус!
+                        
+                        # МЕТОД 2: Совпадения нормализованных слов
                         matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
                         
-                        # УЛУЧШЕННЫЙ SCORING:
-                        # 1. Минимум 2 совпадения для подкатегорий (строже фильтр)
-                        # 2. Подкатегории имеют приоритет
-                        # 3. Учитываем покрытие ключевых слов категории
+                        # МЕТОД 3: Специальные правила (EXACT_PHRASES)
+                        phrase_bonus = 0
+                        for main_word, variants in EXACT_PHRASES.items():
+                            cat_has = any(v in cat['original_name'] for v in variants)
+                            product_has = any(v in product_text_lower for v in variants)
+                            if cat_has and product_has:
+                                phrase_bonus += 50
                         
-                        if matches >= 2 or (matches >= 1 and cat['depth'] == 0):
+                        # ФИНАЛЬНЫЙ SCORING
+                        if matches >= 2 or score >= 1000:
                             coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
-                            # Подкатегории (depth=1) получают +50 баллов
-                            # Больше совпадений = лучше
-                            score = (matches * 100) + (cat['depth'] * 50) + (coverage * 10)
+                            total_score = score + (matches * 100) + (cat['depth'] * 100) + (coverage * 20) + phrase_bonus
                             
-                            if score > best_score:
-                                best_score = score
+                            if total_score > best_score:
+                                best_score = total_score
                                 best_match = cat['id']
                     
-                    # Fallback на "Прочее" если не нашли подходящую категорию
+                    # Fallback на "Прочее" (id=177)
                     category_id = best_match or 177
                 
                 # Собираем данные товара
