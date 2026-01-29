@@ -213,18 +213,28 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
             setIsSearchMode(false)
             setProducts([])
             setSearchQuery("")
+            setCurrentPage(0)
             return
         }
         
         if (breadcrumbs.length > 1) {
             const newBreadcrumbs = breadcrumbs.slice(0, -1)
+            const previousCategory = newBreadcrumbs[newBreadcrumbs.length - 1]
             setBreadcrumbs(newBreadcrumbs)
-            setSelectedCategory(newBreadcrumbs[newBreadcrumbs.length - 1])
-            setProducts([])
+            setSelectedCategory(previousCategory)
+            setCurrentPage(0)
+            
+            // Загружаем товары предыдущей категории (если нет подкатегорий)
+            if (!previousCategory.children || previousCategory.children.length === 0) {
+                fetchProducts(previousCategory.id, undefined, 0, false)
+            } else {
+                setProducts([])
+            }
         } else {
             setBreadcrumbs([])
             setSelectedCategory(null)
             setProducts([])
+            setCurrentPage(0)
         }
     }
 
