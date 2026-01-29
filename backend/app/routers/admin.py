@@ -4,7 +4,9 @@ Admin API Router
 """
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Header
+import io
+import pandas as pd
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -544,4 +546,169 @@ async def get_admin_stats(db: AsyncSession = Depends(get_db)):
         "total_sellers": sellers_count.scalar(),
         "featured_products": featured_count.scalar()
     }
+
+
+# ============ ИМПОРТ ТОВАРОВ ИЗ EXCEL ============
+
+@router.post("/import-products")
+async def import_products_from_excel(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    ИМПОРТ ТОВАРОВ ИЗ EXCEL/CSV
+    Поддерживает умное распределение по категориям
+    """
+    from sqlalchemy import text
+    import re
+    
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+    
+    # Проверяем расширение
+    if not (file.filename.endswith('.xlsx') or file.filename.endswith('.csv')):
+        raise HTTPException(status_code=400, detail="Только .xlsx или .csv файлы")
+    
+    try:
+        # Читаем файл
+        contents = await file.read()
+        
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            df = pd.read_csv(io.BytesIO(contents))
+        
+        # Проверяем обязательные колонки
+        required = ['name', 'part_number', 'price_rub']
+        missing = [col for col in required if col not in df.columns]
+        if missing:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Отсутствуют обязательные колонки: {', '.join(missing)}"
+            )
+        
+        # Получаем все категории для сопоставления
+        result = await db.execute(text("SELECT id, name, slug, parent_id FROM categories"))
+        categories = result.fetchall()
+        cat_name_to_id = {cat[1].lower().strip(): cat[0] for cat in categories}
+        
+        print(f"📊 Импорт из {file.filename}: {len(df)} строк")
+        print(f"📁 Категорий в базе: {len(categories)}")
+        
+        # Функция извлечения ключевых слов
+        STOP_WORDS = {'и', 'в', 'на', 'с', 'для', 'по', 'к', 'из', 'от', 'у', 'о'}
+        
+        def extract_keywords(text: str) -> list:
+            clean_text = re.sub(r'[^\w\s]', ' ', text.lower())
+            words = clean_text.split()
+            return [w for w in words if w not in STOP_WORDS and len(w) >= 3]
+        
+        # Подготавливаем категории с keywords
+        category_data = []
+        for cat_id, cat_name, cat_slug, parent_id in categories:
+            keywords = extract_keywords(f"{cat_name} {cat_slug}")
+            category_data.append({
+                'id': cat_id,
+                'name': cat_name,
+                'keywords': keywords,
+                'depth': 1 if parent_id else 0
+            })
+        
+        # Статистика
+        created = 0
+        skipped = 0
+        errors = []
+        
+        # Обрабатываем каждую строку
+        for idx, row in df.iterrows():
+            try:
+                name = str(row['name']).strip()
+                part_number = str(row['part_number']).strip()
+                price_rub = float(row['price_rub'])
+                
+                if not name or not part_number or price_rub <= 0:
+                    errors.append(f"Строка {idx + 2}: пропущены обязательные поля")
+                    skipped += 1
+                    continue
+                
+                # Проверяем дубликат
+                check = await db.execute(
+                    text("SELECT id FROM products WHERE part_number = :pn"),
+                    {"pn": part_number}
+                )
+                if check.scalar():
+                    errors.append(f"Строка {idx + 2}: артикул {part_number} уже существует")
+                    skipped += 1
+                    continue
+                
+                # Определяем категорию
+                category_id = None
+                
+                # Способ 1: Прямое указание category_name
+                if 'category_name' in df.columns and pd.notna(row['category_name']):
+                    cat_name = str(row['category_name']).lower().strip()
+                    category_id = cat_name_to_id.get(cat_name)
+                
+                # Способ 2: Умный поиск по ключевым словам
+                if not category_id:
+                    product_text = f"{name} {part_number} {row.get('manufacturer', '')}"
+                    product_keywords = set(extract_keywords(product_text))
+                    
+                    best_match = None
+                    best_score = 0
+                    
+                    for cat in category_data:
+                        matches = sum(1 for kw in cat['keywords'] if kw in product_keywords)
+                        if matches > 0:
+                            coverage = matches / len(cat['keywords']) if cat['keywords'] else 0
+                            score = (matches * 100) + (cat['depth'] * 10) + (coverage * 5)
+                            if score > best_score:
+                                best_score = score
+                                best_match = cat['id']
+                    
+                    category_id = best_match or 1  # Default fallback
+                
+                # Собираем данные товара
+                product_data = {
+                    'name': name,
+                    'part_number': part_number,
+                    'price_rub': price_rub,
+                    'category_id': category_id,
+                    'stock_quantity': int(row.get('stock_quantity', 0)) if pd.notna(row.get('stock_quantity')) else 0,
+                    'manufacturer': str(row.get('manufacturer', '')).strip() if pd.notna(row.get('manufacturer')) else None,
+                    'image_url': str(row.get('image_url', '')).strip() if pd.notna(row.get('image_url')) else None,
+                    'is_in_stock': bool(row.get('is_in_stock', True)) if pd.notna(row.get('is_in_stock')) else True,
+                    'is_installment_available': bool(row.get('is_installment_available', False)) if pd.notna(row.get('is_installment_available')) else False,
+                    'description': str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
+                    'images': [],
+                    'price_usd': None,
+                    'is_preorder': False
+                }
+                
+                # Создаём товар
+                db_product = models.Product(**product_data)
+                db.add(db_product)
+                created += 1
+                
+            except Exception as e:
+                errors.append(f"Строка {idx + 2}: {str(e)}")
+                skipped += 1
+        
+        # Сохраняем все товары
+        await db.commit()
+        
+        print(f"✅ Создано: {created}")
+        print(f"⚠️ Пропущено: {skipped}")
+        
+        return {
+            "success": True,
+            "total_rows": len(df),
+            "created": created,
+            "skipped": skipped,
+            "errors": errors[:20],  # Первые 20 ошибок
+            "message": f"✅ Импорт завершён! Создано: {created}, Пропущено: {skipped}"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Ошибка обработки файла: {str(e)}")
 

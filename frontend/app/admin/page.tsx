@@ -111,6 +111,7 @@ function AdminContent() {
   const [showcaseSearching, setShowcaseSearching] = useState(false)
   const [linkingProducts, setLinkingProducts] = useState(false)
   const [distributingProducts, setDistributingProducts] = useState(false)
+  const [importingProducts, setImportingProducts] = useState(false)
   
   // All products management
   const [allProducts, setAllProducts] = useState<Product[]>([])
@@ -395,6 +396,55 @@ function AdminContent() {
       console.error(e)
     }
   }, [getAdminHeaders, view, allProductsPage, loadAllProducts, loadDashboard])
+
+  // Import products from Excel
+  const handleImportProducts = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.csv')) {
+      alert('❌ Только .xlsx или .csv файлы!')
+      e.target.value = ''
+      return
+    }
+    
+    if (!confirm(`📊 Импортировать товары из файла?\n\n${file.name}\n\nЭто может занять несколько минут.`)) {
+      e.target.value = ''
+      return
+    }
+    
+    setImportingProducts(true)
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const res = await fetch(`${API_URL}/api/admin/import-products`, {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: formData
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        const errorText = data.errors && data.errors.length > 0 
+          ? `\n\n⚠️ Ошибки (первые 5):\n${data.errors.slice(0, 5).join('\n')}`
+          : ''
+        
+        alert(`✅ Импорт завершён!\n\n📦 Всего строк: ${data.total_rows}\n✅ Создано: ${data.created}\n⚠️ Пропущено: ${data.skipped}${errorText}`)
+        loadDashboard()
+      } else {
+        const error = await res.json()
+        alert(`❌ Ошибка: ${error.detail || 'Не удалось импортировать'}`)
+      }
+    } catch (err) {
+      alert('❌ Ошибка сети')
+      console.error(err)
+    } finally {
+      setImportingProducts(false)
+      e.target.value = ''
+    }
+  }, [getAdminHeaders, loadDashboard])
 
   // Distribute products by categories
   const distributeProductsByCategories = useCallback(async () => {
@@ -2208,6 +2258,38 @@ function AdminContent() {
             <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
           </div>
         </Card>
+
+        <label className="cursor-pointer">
+          <Card 
+            className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20 p-4 hover:from-cyan-500/20 hover:to-cyan-600/10 transition-all group active:scale-[0.98]"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/30 to-cyan-600/20 border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+                  {importingProducts ? (
+                    <Loader2 className="h-6 w-6 text-cyan-400 animate-spin" />
+                  ) : (
+                    <Upload className="h-6 w-6 text-cyan-400 group-hover:scale-110 transition-transform" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-lg">📊 Импорт из Excel</p>
+                  <p className="text-xs text-muted-foreground">
+                    {importingProducts ? "Загружаю товары..." : "Массовая загрузка из .xlsx/.csv"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+            </div>
+          </Card>
+          <input
+            type="file"
+            accept=".xlsx,.csv"
+            onChange={handleImportProducts}
+            className="hidden"
+            disabled={importingProducts}
+          />
+        </label>
 
         <Card 
           className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20 p-4 cursor-pointer hover:from-orange-500/20 hover:to-orange-600/10 transition-all group active:scale-[0.98]"
