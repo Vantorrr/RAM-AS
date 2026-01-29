@@ -1620,7 +1620,11 @@ function AdminContent() {
               </label>
               <select 
                 value={editingProduct?.category_id || ''}
-                onChange={e => setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || flattenCategories(categories)[0]?.id || 1})}
+                onChange={e => {
+                  if (editingProduct) {
+                    setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || 1})
+                  }
+                }}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
               >
                 <option value="">Выберите категорию...</option>
@@ -1837,7 +1841,12 @@ function AdminContent() {
               </label>
               <select 
                 value={editingProduct?.category_id || ''}
-                onChange={e => setEditingProduct({...(editingProduct || {} as Product), category_id: parseInt(e.target.value) || flattenCategories(categories)[0]?.id || 1})}
+                onChange={e => {
+                  setEditingProduct(prev => ({
+                    ...(prev || {} as Product),
+                    category_id: parseInt(e.target.value) || 1
+                  }))
+                }}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
               >
                 <option value="">Выберите категорию...</option>
