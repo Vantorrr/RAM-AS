@@ -281,30 +281,44 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                     # Ищем товары, совместимые с этими авто
                     from sqlalchemy import text as sql_text
                     
+                    print(f"🔍 Vehicle IDs for search: {vehicle_ids[:10]}...")
+                    
                     # Если есть запрос на запчасть — фильтруем по названию
                     part_term = parsed["part_query"]
+                    
+                    # Используем raw SQL для надёжности с many-to-many
                     if part_term and len(part_term) > 2:
-                        stmt = select(models.Product).join(
-                            models.product_vehicles,
-                            models.Product.id == models.product_vehicles.c.product_id
-                        ).where(
-                            models.product_vehicles.c.vehicle_id.in_(vehicle_ids),
-                            or_(
-                                models.Product.name.ilike(f"%{part_term}%"),
-                                models.Product.description.ilike(f"%{part_term}%")
-                            )
-                        ).distinct().limit(8)
+                        sql = sql_text("""
+                            SELECT DISTINCT p.* FROM products p
+                            JOIN product_vehicles pv ON p.id = pv.product_id
+                            WHERE pv.vehicle_id = ANY(:vehicle_ids)
+                            AND (p.name ILIKE :search OR p.description ILIKE :search)
+                            LIMIT 8
+                        """)
+                        result = await db.execute(sql, {
+                            "vehicle_ids": vehicle_ids,
+                            "search": f"%{part_term}%"
+                        })
                     else:
                         # Показываем популярные товары для этого авто
-                        stmt = select(models.Product).join(
-                            models.product_vehicles,
-                            models.Product.id == models.product_vehicles.c.product_id
-                        ).where(
-                            models.product_vehicles.c.vehicle_id.in_(vehicle_ids)
-                        ).distinct().limit(8)
+                        sql = sql_text("""
+                            SELECT DISTINCT p.* FROM products p
+                            JOIN product_vehicles pv ON p.id = pv.product_id
+                            WHERE pv.vehicle_id = ANY(:vehicle_ids)
+                            LIMIT 8
+                        """)
+                        result = await db.execute(sql, {"vehicle_ids": vehicle_ids})
                     
-                    result = await db.execute(stmt)
-                    products = result.scalars().all()
+                    rows = result.fetchall()
+                    print(f"📦 Found {len(rows)} products via SQL")
+                    
+                    # Конвертируем в объекты Product
+                    if rows:
+                        product_ids = [row[0] for row in rows]  # row[0] = id
+                        stmt = select(models.Product).where(models.Product.id.in_(product_ids))
+                        result2 = await db.execute(stmt)
+                        products = result2.scalars().all()
+                    
                     search_method = f"по совместимости с {parsed['make'] or ''} {parsed['year'] or ''}"
             
             # 2. Fallback: текстовый поиск если ничего не нашли
