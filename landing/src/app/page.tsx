@@ -49,28 +49,31 @@ export default function Home() {
       {/* SPLASH SCREEN */}
       {showSplash && (
         <div className="splash-overlay">
-          <div className="flex flex-col items-center gap-6 splash-logo">
-            <div className="relative">
-              <div className="absolute inset-0 bg-[var(--accent)] blur-3xl opacity-50 rounded-full scale-150" />
-              <div className="relative h-32 w-32 md:h-40 md:w-40 flex items-center justify-center glow-red">
-                <Image 
-                  src="/logo-nobg.png" 
-                  alt="RAM-US Logo" 
-                  width={160} 
-                  height={160} 
-                  className="object-contain"
-                  priority
-                />
-              </div>
+          <div className="flex flex-col items-center gap-8 splash-logo-container">
+            {/* Glow effect */}
+            <div className="splash-glow" />
+            
+            {/* Logo */}
+            <div className="relative z-10 animate-scale-in">
+              <Image 
+                src="/logo-nobg.png" 
+                alt="RAM-US Logo" 
+                width={220} 
+                height={220} 
+                className="object-contain drop-shadow-[0_0_30px_rgba(214,45,45,0.6)]"
+                priority
+              />
             </div>
-            <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">RAM-US</h1>
-              <p className="text-sm text-white/60 mt-2">Запчасти для американцев</p>
+
+            {/* Text */}
+            <div className="text-center z-10 animate-fade-in-up delay-200">
+              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg">RAM-US</h1>
+              <p className="text-sm md:text-base text-white/80 mt-2 font-medium tracking-wide uppercase">Запчасти для американцев</p>
             </div>
-            <div className="flex gap-1 mt-4">
-              <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
-              <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse delay-100" />
-              <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse delay-200" />
+
+            {/* Progress Bar */}
+            <div className="splash-progress">
+              <div className="splash-progress-bar" />
             </div>
           </div>
         </div>
