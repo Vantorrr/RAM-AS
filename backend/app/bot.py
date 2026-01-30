@@ -60,14 +60,22 @@ async def notify_new_order(order_data: dict):
         return
     
     try:
+        # Формируем список товаров
+        items_list = ""
+        for item in order_data.get('items', []):
+            product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
+            quantity = item.get('quantity', 1)
+            price = item.get('price_at_purchase', 0)
+            items_list += f"  • {product_name} — {quantity} шт × {price:,.0f} ₽\n"
+        
         message = (
             "🔔 <b>НОВЫЙ ЗАКАЗ!</b>\n\n"
             f"📦 Заказ #{order_data['id']}\n"
             f"👤 Клиент: {order_data.get('user_name', 'Не указано')}\n"
             f"📱 Телефон: {order_data.get('user_phone', 'Не указано')}\n"
             f"📍 Адрес: {order_data.get('delivery_address', 'Не указано')}\n\n"
-            f"💰 Сумма: {order_data['total_amount']:,.0f} ₽\n"
-            f"📋 Товаров: {len(order_data.get('items', []))}\n\n"
+            f"🛒 <b>Товары:</b>\n{items_list}\n"
+            f"💰 <b>Итого:</b> {order_data['total_amount']:,.0f} ₽\n\n"
             f"⏰ Время: {order_data.get('created_at', 'сейчас')}"
         )
         for admin_id in ADMIN_CHAT_IDS:
