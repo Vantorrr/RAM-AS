@@ -245,9 +245,49 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #050505;
+  background: #000;
 }
 
-.splash-logo {
-  animation: scaleIn 0.8s ease-out, pulse-glow 2s ease-in-out infinite;
+.splash-logo-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: scaleIn 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.splash-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  filter: blur(20px);
+  opacity: 0;
+  animation: fadeIn 1s ease-out 0.5s forwards, pulse-glow 3s ease-in-out infinite 1.5s;
+}
+
+.splash-progress {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.splash-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  animation: progress 2s ease-in-out forwards;
+  box-shadow: 0 0 10px var(--accent);
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }
