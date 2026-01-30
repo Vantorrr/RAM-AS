@@ -14,8 +14,13 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   const cartItems = useCartStore(state => state.getTotalItems())
   
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full border-t border-white/10 bg-black/80 backdrop-blur-xl pb-safe supports-[backdrop-filter]:bg-black/60">
-      <div className="flex h-16 items-center justify-around px-1">
+    <div className="fixed bottom-0 left-0 z-50 w-full pb-safe">
+      {/* glass / gradient base */}
+      <div className="pointer-events-none absolute inset-0 border-t border-white/10 bg-gradient-to-t from-black/90 via-black/70 to-black/40 backdrop-blur-2xl supports-[backdrop-filter]:bg-black/55" />
+      {/* top highlight line */}
+      <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
+      <div className="relative flex h-16 items-center justify-around px-1">
         <NavButton 
           icon={Home} 
           label="Главная" 
@@ -24,7 +29,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
         />
         <NavButton 
           icon={Search} 
-          label="Каталог" 
+          label="Поиск" 
           isActive={activeTab === 'catalog'} 
           onClick={() => onTabChange('catalog')} 
         />
@@ -62,17 +67,23 @@ function NavButton({ icon: Icon, label, isActive, onClick, badge, className }: a
       variant="ghost"
       size="icon"
       className={cn(
-        "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-none hover:bg-white/5 active:scale-95 transition-all",
+        "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-none active:scale-95 transition-all",
+        "hover:bg-white/5",
         isActive ? "text-primary" : "text-muted-foreground",
         isActive && className ? className : "", 
         !isActive && className ? "text-purple-400/70" : ""
       )}
       onClick={onClick}
     >
+      {/* active pill */}
+      {isActive && (
+        <span className="pointer-events-none absolute inset-x-2 top-1.5 bottom-1.5 rounded-2xl bg-white/5 ring-1 ring-white/10" />
+      )}
+
       <div className="relative group">
         <Icon className={cn(
-            "h-6 w-6 transition-all duration-300", 
-            isActive && "scale-110 drop-shadow-[0_0_8px_rgba(211,47,47,0.6)]",
+            "h-6 w-6 transition-all duration-300",
+            isActive && "scale-110 drop-shadow-[0_0_10px_rgba(211,47,47,0.8)]",
             isActive && className?.includes("purple") && "drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]"
         )} />
         {badge > 0 && (
