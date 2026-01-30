@@ -34,6 +34,7 @@ interface Product {
   images?: string[] | null  // Дополнительные фото (галерея)
   is_in_stock: boolean
   is_installment_available: boolean
+  is_preorder: boolean
   stock_quantity: number
   category_id: number
   category?: Category | null  // Добавили информацию о категории!
@@ -797,7 +798,8 @@ function AdminContent() {
           image_url: editingProduct.image_url,
           images: editingProduct.images || [],
           is_in_stock: editingProduct.is_in_stock,
-          is_installment_available: editingProduct.is_installment_available
+          is_installment_available: editingProduct.is_installment_available,
+          is_preorder: editingProduct.is_preorder
         })
       })
       
@@ -1791,6 +1793,21 @@ function AdminContent() {
                 </span>
               </label>
             </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingProduct.is_preorder}
+                  onChange={e => setEditingProduct({...editingProduct, is_preorder: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm">
+                  <Package className="h-3 w-3 inline mr-1" />
+                  Под заказ (4-6 недель)
+                </span>
+              </label>
+            </div>
           </Card>
 
           <Button onClick={handleSave} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
@@ -2053,6 +2070,21 @@ function AdminContent() {
                 </span>
               </label>
             </div>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editingProduct?.is_preorder || false}
+                  onChange={e => setEditingProduct({...(editingProduct || {} as Product), is_preorder: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-sm">
+                  <Package className="h-3 w-3 inline mr-1" />
+                  Под заказ (4-6 недель)
+                </span>
+              </label>
+            </div>
           </Card>
 
           <Button 
@@ -2082,6 +2114,7 @@ function AdminContent() {
                     images: editingProduct.images || [],
                     is_in_stock: editingProduct.is_in_stock || false,
                     is_installment_available: editingProduct.is_installment_available || false,
+                    is_preorder: editingProduct.is_preorder || false,
                     description: '',
                     manufacturer: ''
                   })
@@ -2342,6 +2375,7 @@ function AdminContent() {
               stock_quantity: 0,
               image_url: null,
               is_installment_available: false,
+              is_preorder: false,
               category_id: firstCategoryId
             }); 
             setView('create'); 

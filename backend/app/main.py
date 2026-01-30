@@ -1034,3 +1034,41 @@ async def create_order(
     )
     
     return db_order
+
+@app.post("/preorders/")
+async def create_preorder(
+    preorder: dict,
+    background_tasks: BackgroundTasks
+):
+    """Создать заявку на товар под заказ"""
+    from .bot import bot, ADMIN_CHAT_IDS
+    
+    # Отправляем уведомление админам
+    if bot and ADMIN_CHAT_IDS:
+        message = (
+            "📦 <b>НОВАЯ ЗАЯВКА НА ТОВАР ПОД ЗАКАЗ!</b>\n\n"
+            f"🛍️ <b>Товар:</b> {preorder.get('product_name', 'Не указано')}\n"
+            f"🆔 <b>ID:</b> {preorder.get('product_id', '?')}\n\n"
+            f"👤 <b>Клиент:</b> {preorder.get('user_name', 'Не указано')}\n"
+            f"📱 <b>Телефон:</b> {preorder.get('user_phone', 'Не указано')}\n"
+            f"🆔 <b>TG ID:</b> {preorder.get('user_telegram_id', 'Не указан')}\n\n"
+            f"💬 <b>Комментарий:</b>\n{preorder.get('comment', 'Нет комментария')}\n\n"
+            f"⏱️ <b>Срок поставки:</b> 4-6 недель\n"
+            f"⚠️ <i>Свяжитесь с клиентом для уточнения деталей!</i>"
+        )
+        
+        background_tasks.add_task(
+            lambda: asyncio.create_task(_send_preorder_notification(message))
+        )
+    
+    return {"status": "ok", "message": "Заявка принята"}
+
+async def _send_preorder_notification(message: str):
+    """Helper для отправки уведомления о предзаказе"""
+    from .bot import bot, ADMIN_CHAT_IDS
+    if bot and ADMIN_CHAT_IDS:
+        for admin_id in ADMIN_CHAT_IDS:
+            try:
+                await bot.send_message(chat_id=admin_id.strip(), text=message, parse_mode="HTML")
+            except Exception as e:
+                print(f"❌ Failed to send preorder notification to {admin_id}: {e}")
