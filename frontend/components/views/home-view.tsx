@@ -247,24 +247,6 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
         )}
       </section>
 
-      {/* Stats Row */}
-      <section className="px-4">
-        <div className="flex gap-2">
-          <Card className="flex-1 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 p-3 text-center">
-            <div className="text-2xl font-black text-blue-400">USA</div>
-            <p className="text-[10px] text-white/60">Прямые поставки</p>
-          </Card>
-          <Card className="flex-1 bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20 p-3 text-center">
-            <div className="text-2xl font-black text-white">12<span className="text-amber-400">+</span></div>
-            <p className="text-[10px] text-white/60">Лет на рынке</p>
-          </Card>
-          <Card className="flex-1 bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20 p-3 text-center">
-            <div className="text-2xl font-black text-white">13<span className="text-green-400">K</span></div>
-            <p className="text-[10px] text-white/60">Товаров</p>
-          </Card>
-        </div>
-      </section>
-
       {/* Delivery Banner */}
       <section className="px-4">
         <Card className="bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-emerald-500/20 p-4 flex items-center gap-4">
