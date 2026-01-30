@@ -70,13 +70,16 @@ async def notify_new_order(order_data: dict):
                 product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
                 quantity = item.get('quantity', 1)
                 price = item.get('price_at_purchase', 0)
+                is_preorder = item.get('is_preorder', False)
             else:
                 # Pydantic объект
                 product_name = getattr(item, 'product_name', f"Товар #{getattr(item, 'product_id', '?')}")
                 quantity = getattr(item, 'quantity', 1)
                 price = getattr(item, 'price_at_purchase', 0)
+                is_preorder = getattr(item, 'is_preorder', False)
             
-            items_list += f"  • {product_name} — {quantity} шт × {price:,.0f} ₽\n"
+            preorder_mark = " ⏱️ <b>ПОД ЗАКАЗ (4-6 нед)</b>" if is_preorder else ""
+            items_list += f"  • {product_name} — {quantity} шт × {price:,.0f} ₽{preorder_mark}\n"
         
         # Если список товаров пустой, показываем только количество
         if not items_list:

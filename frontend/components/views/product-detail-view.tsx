@@ -1,18 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, ShoppingCart, Check, Package, Truck, Shield, Store, ShieldCheck, Clock, X } from "lucide-react"
+import { ArrowLeft, ShoppingCart, Check, Package, Truck, Shield, Store, ShieldCheck, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { useCartStore } from "@/lib/cart-store"
 import Image from "next/image"
 import { API_URL } from "@/lib/config"
-import { getTelegramUser } from "@/lib/telegram"
 
 interface Product {
   id: number
@@ -46,56 +42,7 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
   const [loading, setLoading] = useState(true)
   const [added, setAdded] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [showPreorderModal, setShowPreorderModal] = useState(false)
-  const [preorderComment, setPreorderComment] = useState('')
-  const [preorderName, setPreorderName] = useState('')
-  const [preorderPhone, setPreorderPhone] = useState('')
-  const [preorderLoading, setPreorderLoading] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
-
-  // Загрузка данных пользователя из Telegram
-  useEffect(() => {
-    const tgUser = getTelegramUser()
-    if (tgUser) {
-      setPreorderName(tgUser.first_name || '')
-      // Telegram не даёт номер телефона автоматически
-    }
-  }, [])
-
-  // Автостарт с +7 при открытии модалки
-  useEffect(() => {
-    if (showPreorderModal && !preorderPhone) {
-      setPreorderPhone('+7 ')
-    }
-  }, [showPreorderModal])
-
-  // Форматирование телефона: +7 (999) 123-45-67
-  const formatPhoneNumber = (value: string) => {
-    // Удаляем все нецифровые символы
-    const cleaned = value.replace(/\D/g, '')
-    
-    // Ограничиваем до 11 цифр (российский номер)
-    const limited = cleaned.slice(0, 11)
-    
-    // Форматируем
-    if (limited.length === 0) return '+7 '
-    if (limited.length <= 1) return `+7 `
-    if (limited.length <= 4) return `+7 (${limited.slice(1)}`
-    if (limited.length <= 7) return `+7 (${limited.slice(1, 4)}) ${limited.slice(4)}`
-    if (limited.length <= 9) return `+7 (${limited.slice(1, 4)}) ${limited.slice(4, 7)}-${limited.slice(7)}`
-    return `+7 (${limited.slice(1, 4)}) ${limited.slice(4, 7)}-${limited.slice(7, 9)}-${limited.slice(9, 11)}`
-  }
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value
-    // Если пользователь пытается стереть всё, оставляем "+7 "
-    if (input.length < 3) {
-      setPreorderPhone('+7 ')
-      return
-    }
-    const formatted = formatPhoneNumber(input)
-    setPreorderPhone(formatted)
-  }
 
   useEffect(() => {
     async function fetchProduct() {
@@ -121,58 +68,11 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
       price_rub: product.price_rub,
       image_url: product.image_url,
       part_number: product.part_number,
-      is_installment_available: product.is_installment_available
+      is_installment_available: product.is_installment_available,
+      is_preorder: product.is_preorder
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
-  }
-
-  const handlePreorderSubmit = async () => {
-    if (!product) return
-    
-    // Валидация
-    if (!preorderName.trim()) {
-      alert('Укажите ваше имя')
-      return
-    }
-    if (!preorderPhone.trim() || preorderPhone.replace(/\D/g, '').length < 11) {
-      alert('Укажите корректный телефон (11 цифр)')
-      return
-    }
-    
-    setPreorderLoading(true)
-    try {
-      const tgUser = getTelegramUser()
-      const userId = tgUser?.id ? String(tgUser.id) : "web_user"
-
-      const res = await fetch(`${API_URL}/preorders/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: product.id,
-          product_name: product.name,
-          user_telegram_id: userId,
-          user_name: preorderName.trim(),
-          user_phone: preorderPhone.trim(),
-          comment: preorderComment.trim() || 'Нет комментария'
-        })
-      })
-
-      if (res.ok) {
-        alert('✅ Заявка на товар под заказ отправлена!\n\nМенеджер свяжется с вами в ближайшее время.')
-        setShowPreorderModal(false)
-        setPreorderComment('')
-        setPreorderName('')
-        setPreorderPhone('')
-      } else {
-        alert('Ошибка при отправке заявки')
-      }
-    } catch (error) {
-      console.error('Error submitting preorder:', error)
-      alert('Ошибка при отправке заявки')
-    } finally {
-      setPreorderLoading(false)
-    }
   }
 
   if (loading) {
@@ -392,13 +292,23 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
             <Button 
               size="lg" 
               className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-lg shadow-amber-600/30 transition-all hover:shadow-amber-600/50 hover:scale-[1.02] active:scale-95"
-              onClick={() => setShowPreorderModal(true)}
+              onClick={handleAddToCart}
+              disabled={added}
             >
-              <Clock className="mr-2 h-5 w-5" />
-              Заказать под заказ
+              {added ? (
+                <>
+                  <Check className="mr-2 h-5 w-5" />
+                  Добавлено в корзину
+                </>
+              ) : (
+                <>
+                  <Clock className="mr-2 h-5 w-5" />
+                  Заказать под заказ
+                </>
+              )}
             </Button>
             <p className="text-xs text-center text-amber-400">
-              ⏱️ Срок поставки: 4-6 недель
+              ⏱️ Срок поставки: 4-6 недель • Оплата онлайн
             </p>
           </div>
         ) : (
@@ -422,87 +332,6 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
           </Button>
         )}
       </div>
-
-      {/* Preorder Modal */}
-      {showPreorderModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-md bg-zinc-900 border-white/20 p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Package className="h-5 w-5 text-amber-400" />
-                Заказ под заказ
-              </h3>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setShowPreorderModal(false)}
-                className="h-8 w-8"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            <div className="bg-white/5 rounded-lg p-3 text-sm">
-              <p className="font-semibold mb-1">{product.name}</p>
-              <p className="text-muted-foreground text-xs">Артикул: {product.part_number}</p>
-              <p className="text-primary font-bold mt-2">{product.price_rub.toLocaleString('ru-RU')} ₽</p>
-            </div>
-
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
-              <p className="text-sm text-amber-400 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span className="font-semibold">Срок поставки: 4-6 недель</span>
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label className="text-sm">Ваше имя *</Label>
-                <Input
-                  placeholder="Иван Иванов"
-                  value={preorderName}
-                  onChange={(e) => setPreorderName(e.target.value)}
-                  className="bg-white/5 border-white/10"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Телефон *</Label>
-                <Input
-                  type="tel"
-                  placeholder="+7 (999) 123-45-67"
-                  value={preorderPhone}
-                  onChange={handlePhoneChange}
-                  className="bg-white/5 border-white/10"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Комментарий (опционально)</Label>
-                <Textarea
-                  placeholder="Укажите дополнительные пожелания..."
-                  value={preorderComment}
-                  onChange={(e) => setPreorderComment(e.target.value)}
-                  className="bg-white/5 border-white/10 min-h-20"
-                />
-              </div>
-            </div>
-
-            <div className="bg-white/5 rounded-lg p-3 text-xs text-muted-foreground">
-              <p>После отправки заявки менеджер свяжется с вами для уточнения деталей и оплаты.</p>
-            </div>
-
-            <Button 
-              size="lg"
-              className="w-full bg-amber-600 hover:bg-amber-700 font-bold"
-              onClick={handlePreorderSubmit}
-              disabled={preorderLoading}
-            >
-              {preorderLoading ? 'Отправка...' : 'Отправить заявку'}
-            </Button>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }

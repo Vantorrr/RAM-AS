@@ -9,6 +9,7 @@ interface CartItem {
   part_number: string
   quantity: number
   is_installment_available?: boolean
+  is_preorder?: boolean
 }
 
 interface CartStore {

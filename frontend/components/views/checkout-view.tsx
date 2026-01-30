@@ -240,7 +240,8 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
         items: items.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
-          price_at_purchase: item.price_rub
+          price_at_purchase: item.price_rub,
+          is_preorder: item.is_preorder || false
         }))
       }
 

@@ -994,7 +994,8 @@ async def create_order(
             order_id=order_id,
             product_id=item.product_id,
             quantity=item.quantity,
-            price_at_purchase=item.price_at_purchase
+            price_at_purchase=item.price_at_purchase,
+            is_preorder=item.is_preorder
         )
         db.add(db_item)
     
@@ -1026,7 +1027,8 @@ async def create_order(
                     "product_id": item.product_id,
                     "product_name": item.product.name if item.product else f"Товар #{item.product_id}",
                     "quantity": item.quantity,
-                    "price_at_purchase": item.price_at_purchase
+                    "price_at_purchase": item.price_at_purchase,
+                    "is_preorder": item.is_preorder
                 } for item in db_order.items
             ],
             "created_at": db_order.created_at.strftime("%d.%m.%Y %H:%M")

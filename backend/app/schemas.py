@@ -99,6 +99,7 @@ class OrderItemBase(BaseModel):
     product_id: int
     quantity: int
     price_at_purchase: float
+    is_preorder: bool = False
 
 class OrderCreate(BaseModel):
     user_telegram_id: str

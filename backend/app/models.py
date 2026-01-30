@@ -136,6 +136,7 @@ class OrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer, default=1)
     price_at_purchase = Column(Float)
+    is_preorder = Column(Boolean, default=False)
     
     order = relationship("Order", back_populates="items")
     product = relationship("Product")

@@ -3,7 +3,8 @@
 import { useCartStore } from "@/lib/cart-store"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Minus, Plus, Trash2, ShoppingBag, Clock } from "lucide-react"
 import Image from "next/image"
 
 interface CartViewProps {
@@ -54,6 +55,12 @@ export function CartView({ onCheckout }: CartViewProps) {
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm line-clamp-2 mb-1">{item.name}</h3>
                 <p className="text-xs text-muted-foreground mb-2">Арт: {item.part_number}</p>
+                {item.is_preorder && (
+                  <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30 text-amber-400 text-[10px] px-1.5 py-0 mb-2">
+                    <Clock className="h-2.5 w-2.5 mr-1" />
+                    Под заказ (4-6 нед)
+                  </Badge>
+                )}
                 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1">
