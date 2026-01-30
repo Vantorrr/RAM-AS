@@ -31,6 +31,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("home")
   const [showCheckout, setShowCheckout] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [initialCategoryId, setInitialCategoryId] = useState<number | undefined>(undefined)
   
   // СОХРАНЯЕМ позицию скролла и состояние CatalogView
   const catalogScrollRef = useRef<number>(0)
@@ -44,7 +45,8 @@ export default function Home() {
     setSelectedProductId(productId)
   }
 
-  const handleCategoryClick = () => {
+  const handleCategoryClick = (categoryId?: number) => {
+    setInitialCategoryId(categoryId)
     setActiveTab("catalog")
   }
 
@@ -80,7 +82,7 @@ export default function Home() {
 
         {/* Основные вкладки - НЕ размонтируются, просто скрываются! */}
         <div className={activeTab === "catalog" ? "block" : "hidden"}>
-          <CatalogView onProductClick={handleProductClick} />
+          <CatalogView onProductClick={handleProductClick} initialCategoryId={initialCategoryId} />
         </div>
         
         <div className={activeTab === "profile" ? "block" : "hidden"}>

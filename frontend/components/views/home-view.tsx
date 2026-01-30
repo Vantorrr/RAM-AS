@@ -176,7 +176,7 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
           </Card>
           <Card 
             className="flex-1 bg-gradient-to-br from-orange-500/30 to-red-500/20 border-orange-500/30 p-4 cursor-pointer hover:scale-[1.05] transition-all relative overflow-hidden group"
-            onClick={onViewAllProducts}
+            onClick={() => onCategoryClick(23)}
           >
             {/* Breathing glow effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-orange-500/40 to-red-500/40 animate-[pulse_2s_ease-in-out_infinite] blur-xl" />

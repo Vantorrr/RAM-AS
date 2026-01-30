@@ -52,9 +52,10 @@ const categoryIcons: Record<string, React.ReactNode> = {
 
 interface CatalogViewProps {
     onProductClick?: (productId: number) => void
+    initialCategoryId?: number
 }
 
-export function CatalogView({ onProductClick }: CatalogViewProps) {
+export function CatalogView({ onProductClick, initialCategoryId }: CatalogViewProps) {
     const { selectedVehicle } = useGarageStore()
 
     // Categories
@@ -85,6 +86,18 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
     const [inStockOnly, setInStockOnly] = useState(false)
     const [minPrice, setMinPrice] = useState("")
     const [maxPrice, setMaxPrice] = useState("")
+
+    // Helper function to find category by ID in tree
+    const findCategoryById = (cats: Category[], id: number): Category | null => {
+        for (const cat of cats) {
+            if (cat.id === id) return cat
+            if (cat.children) {
+                const found = findCategoryById(cat.children, id)
+                if (found) return found
+            }
+        }
+        return null
+    }
 
     // Load categories
     useEffect(() => {
@@ -221,6 +234,17 @@ export function CatalogView({ onProductClick }: CatalogViewProps) {
         setCurrentPage(0)
         fetchProducts(undefined, searchQuery, 0, false)
     }
+    
+    // Auto-select category if initialCategoryId is provided
+    useEffect(() => {
+        if (initialCategoryId && categories.length > 0 && !selectedCategory) {
+            const cat = findCategoryById(categories, initialCategoryId)
+            if (cat) {
+                console.log('🎯 Auto-selecting category:', cat.name)
+                handleCategoryClick(cat)
+            }
+        }
+    }, [initialCategoryId, categories])
 
     // Handle back
     const handleBack = () => {
