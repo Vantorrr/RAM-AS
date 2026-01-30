@@ -228,43 +228,47 @@ async def create_order(items: List[Dict[str, int]], address: str = "Не ука�
             db.add(new_order)
             await db.flush() # Получаем ID заказа
             
+            order_id = new_order.id  # Сохраняем ID перед commit
+            
             # 3. Сохраняем позиции
             for item_data in order_items_db:
                 db_item = models.OrderItem(
-                    order_id=new_order.id,
+                    order_id=order_id,
                     product_id=item_data["product"].id,
                     quantity=item_data["quantity"],
-                    price_at_purchase=item_data["price"]
+                    price_at_purchase=item_data["price"],
+                    is_preorder=item_data["product"].is_preorder
                 )
                 db.add(db_item)
             
             await db.commit()
-            await db.refresh(new_order)
             
             # 4. Уведомляем админов (как обычный заказ)
             notify_data = {
-                "id": new_order.id,
-                "user_name": new_order.user_name,
-                "user_phone": new_order.user_phone,
-                "delivery_address": new_order.delivery_address,
-                "total_amount": new_order.total_amount,
+                "id": order_id,
+                "user_name": name,
+                "user_phone": phone,
+                "delivery_address": address,
+                "total_amount": total_amount,
                 "items": [
                     {
                         "product_id": i["product"].id,
                         "product_name": i["product"].name,
                         "quantity": i["quantity"],
-                        "price_at_purchase": i["price"]
+                        "price_at_purchase": i["price"],
+                        "is_preorder": i["product"].is_preorder
                     } for i in order_items_db
                 ],
                 "created_at": datetime.now().strftime("%d.%m.%Y %H:%M")
             }
-            # Запускаем в фоне (или await, т.к. мы в async)
-            try:
-                await notify_new_order(notify_data)
-            except Exception as e:
-                print(f"Notification warning: {e}")
-                
-            return f"✅ Заказ #{new_order.id} успешно создан! Сумма: {total_amount} руб. Менеджер скоро свяжется."
+        
+        # 5. Уведомляем админов ПОСЛЕ закрытия сессии
+        try:
+            await notify_new_order(notify_data)
+        except Exception as e:
+            print(f"Notification warning: {e}")
+            
+        return f"✅ Заказ #{order_id} успешно создан! Сумма: {total_amount} руб. Менеджер скоро свяжется."
 
     except Exception as e:
         print(f"❌ Create Order Error: {e}")
