@@ -40,52 +40,60 @@ class ChatRequest(BaseModel):
 
 SYSTEM_PROMPT_CONTENT = """
 Ты — профессиональный консультант компании "RAM US Auto Parts" 🇺🇸
+Специализация: запчасти для американских автомобилей (RAM, Dodge, Jeep, Ford, Chevrolet, GMC, Cadillac, Lincoln, Hummer).
 
-🎯 Твоя миссия:
-Помогать клиентам находить автозапчасти для американских авто, показывать ССЫЛКИ на товары и оформлять заказы.
+🎯 ГЛАВНОЕ ПРАВИЛО:
+Чтобы найти подходящую запчасть, ОБЯЗАТЕЛЬНО нужно знать:
+1. Марку авто (RAM, Dodge, Ford, Chevrolet и т.д.)
+2. Модель (1500, F-150, Tahoe и т.д.)
+3. Год выпуска
 
-🛠️ ТВОИ ИНСТРУМЕНТЫ (Tools):
-1. `search_auto_parts`: ОБЯЗАТЕЛЬНО вызывай при любом запросе на запчасти!
-   - Возвращает товары со ССЫЛКАМИ — отправляй их клиенту!
-   - Также возвращает ID для оформления заказа.
-
-2. `create_order`: Оформляет заказ в базе.
-   - Используй ID товара из результатов поиска.
-   - Спроси телефон и адрес перед оформлением.
-
-3. `notify_manager`: Только для сложных случаев (товара нет / нужна консультация).
+❗ Если клиент не указал марку/модель/год — СНАЧАЛА СПРОСИ, потом ищи!
 
 📋 АЛГОРИТМ РАБОТЫ:
 
-Клиент: "Нужны колодки на RAM 1500"
-↓
-Ты: вызываешь `search_auto_parts("колодки RAM 1500")`
-↓
-Получаешь список товаров со ссылками
-↓
-Ты отвечаешь КРАСИВО:
+СЦЕНАРИЙ 1 — Клиент указал авто:
+Клиент: "Нужны колодки на RAM 1500 2022"
+→ Сразу вызывай `search_auto_parts("колодки RAM 1500 2022")`
+→ Показывай результаты со ссылками
 
-"Нашёл для вас колодки на RAM 1500! 🚗
+СЦЕНАРИЙ 2 — Клиент НЕ указал авто:
+Клиент: "Нужны колодки"
+→ НЕ ВЫЗЫВАЙ поиск сразу!
+→ Спроси: "Подскажите, на какой автомобиль нужны колодки? (марка, модель, год)"
+→ Дождись ответа
+→ Потом вызывай `search_auto_parts`
 
-🔹 Колодки тормозные передние — 8 500 ₽ ✅ В наличии
-👉 https://t.me/ram_us_bot/app?startapp=product_123
+🛠️ ИНСТРУМЕНТЫ:
 
-🔹 Колодки задние премиум — 7 200 ₽ ✅ В наличии  
-👉 https://t.me/ram_us_bot/app?startapp=product_456
+1. `search_auto_parts(query)` — Поиск запчастей
+   - Передавай: "[запчасть] [марка] [модель] [год]"
+   - Пример: "колодки RAM 1500 2022"
+   - Возвращает товары со ссылками
 
-Нажмите на ссылку чтобы посмотреть фото и характеристики!
-Хотите оформить заказ?"
+2. `create_order` — Оформить заказ
+   - Спроси телефон и адрес доставки
 
-📌 ВАЖНЫЕ ПРАВИЛА:
+3. `notify_manager` — Позвать менеджера
+   - Если товара нет или сложный случай
 
-1. ВСЕГДА отправляй ссылки на товары (формат https://t.me/ram_us_bot/app?startapp=product_ID)
-2. Ссылки кликабельные — клиент попадёт прямо в карточку товара
-3. Показывай цену и наличие
-4. После показа товаров — предлагай оформить заказ
-5. Для оформления нужен телефон клиента
+📝 ФОРМАТ ОТВЕТА С ТОВАРАМИ:
 
-💡 Клиент может сам перейти по ссылке, посмотреть товар и оплатить там.
-Или ты можешь оформить заказ через `create_order` если он даст контакты.
+"Нашёл колодки для RAM 1500 2022! 🚗
+
+🔹 Колодки передние MOPAR — 8 500 ₽ ✅ В наличии
+   👉 https://t.me/ram_us_bot/app?startapp=product_123
+
+🔹 Колодки задние — 7 200 ₽ ✅ В наличии
+   👉 https://t.me/ram_us_bot/app?startapp=product_456
+
+Нажмите на ссылку — откроется карточка товара с фото!
+Оформить заказ?"
+
+⚠️ ВАЖНО:
+- Ссылки ОБЯЗАТЕЛЬНЫ — клиент кликает и сразу видит товар
+- Указывай цену и наличие
+- Если ничего не нашлось — предложи уточнить или позвать менеджера
 """
 
 # --- Tools Definitions ---
@@ -174,27 +182,160 @@ TOOLS = [
 
 # --- Tool Implementations ---
 
+# Словарь марок авто для парсинга запросов
+VEHICLE_MAKES = {
+    "ram": "RAM", "рам": "RAM", "рэм": "RAM",
+    "dodge": "Dodge", "додж": "Dodge",
+    "jeep": "Jeep", "джип": "Jeep",
+    "chrysler": "Chrysler", "крайслер": "Chrysler",
+    "ford": "Ford", "форд": "Ford",
+    "chevrolet": "Chevrolet", "шевроле": "Chevrolet", "шеви": "Chevrolet",
+    "gmc": "GMC", "джиэмси": "GMC",
+    "cadillac": "Cadillac", "кадиллак": "Cadillac",
+    "hummer": "Hummer", "хаммер": "Hummer",
+    "lincoln": "Lincoln", "линкольн": "Lincoln",
+}
+
+def parse_vehicle_from_query(query: str) -> dict:
+    """Извлекает марку, модель и год из поискового запроса."""
+    query_lower = query.lower()
+    result = {"make": None, "model": None, "year": None, "part_query": query}
+    
+    # Ищем марку
+    for key, make in VEHICLE_MAKES.items():
+        if key in query_lower:
+            result["make"] = make
+            break
+    
+    # Ищем год (4 цифры от 1990 до 2030)
+    import re
+    year_match = re.search(r'\b(19[9]\d|20[0-3]\d)\b', query)
+    if year_match:
+        result["year"] = int(year_match.group(1))
+    
+    # Ищем модель (1500, 2500, F-150, и т.д.)
+    model_patterns = [
+        r'\b(1500|2500|3500|4500|5500)\b',  # RAM trucks
+        r'\b(f-?150|f-?250|f-?350)\b',  # Ford F-series
+        r'\b(silverado|tahoe|suburban|escalade|navigator)\b',
+        r'\b(wrangler|cherokee|grand cherokee|compass|renegade)\b',
+        r'\b(challenger|charger|durango)\b',
+    ]
+    for pattern in model_patterns:
+        match = re.search(pattern, query_lower)
+        if match:
+            result["model"] = match.group(1).upper().replace("-", "-")
+            break
+    
+    # Удаляем найденные элементы из запроса для поиска запчасти
+    part_query = query_lower
+    if result["make"]:
+        for key in VEHICLE_MAKES.keys():
+            part_query = part_query.replace(key, "")
+    if result["year"]:
+        part_query = part_query.replace(str(result["year"]), "")
+    if result["model"]:
+        part_query = re.sub(result["model"].lower().replace("-", "-?"), "", part_query)
+    
+    result["part_query"] = part_query.strip()
+    
+    return result
+
 async def search_auto_parts(query: str, vin: str = None) -> str:
-    """Ищет запчасти в БД и возвращает результаты со ссылками на товары."""
+    """Ищет запчасти в БД с учётом совместимости с автомобилем."""
     print(f"🔎 [AI Tool] Searching parts: query='{query}', VIN='{vin}'")
+    
+    # Парсим запрос
+    parsed = parse_vehicle_from_query(query)
+    print(f"📋 Parsed query: {parsed}")
+    
     try:
         async with SessionLocal() as db:
-            search_term = f"%{query}%"
-            stmt = select(models.Product).where(
-                or_(
-                    models.Product.name.ilike(search_term),
-                    models.Product.part_number.ilike(search_term),
-                    models.Product.description.ilike(search_term)
-                )
-            ).limit(8)
+            products = []
+            search_method = ""
             
-            result = await db.execute(stmt)
-            products = result.scalars().all()
+            # 1. Если указана марка/год — ищем через таблицу совместимости
+            if parsed["make"] or parsed["year"]:
+                # Находим подходящие автомобили
+                vehicle_query = select(models.Vehicle)
+                
+                if parsed["make"]:
+                    vehicle_query = vehicle_query.where(models.Vehicle.make == parsed["make"])
+                
+                if parsed["year"]:
+                    vehicle_query = vehicle_query.where(
+                        models.Vehicle.year_from <= parsed["year"],
+                        or_(
+                            models.Vehicle.year_to >= parsed["year"],
+                            models.Vehicle.year_to.is_(None)
+                        )
+                    )
+                
+                vehicle_result = await db.execute(vehicle_query)
+                vehicles = vehicle_result.scalars().all()
+                vehicle_ids = [v.id for v in vehicles]
+                
+                print(f"🚗 Found {len(vehicle_ids)} matching vehicles")
+                
+                if vehicle_ids:
+                    # Ищем товары, совместимые с этими авто
+                    from sqlalchemy import text as sql_text
+                    
+                    # Если есть запрос на запчасть — фильтруем по названию
+                    part_term = parsed["part_query"]
+                    if part_term and len(part_term) > 2:
+                        stmt = select(models.Product).join(
+                            models.product_vehicles,
+                            models.Product.id == models.product_vehicles.c.product_id
+                        ).where(
+                            models.product_vehicles.c.vehicle_id.in_(vehicle_ids),
+                            or_(
+                                models.Product.name.ilike(f"%{part_term}%"),
+                                models.Product.description.ilike(f"%{part_term}%")
+                            )
+                        ).distinct().limit(8)
+                    else:
+                        # Показываем популярные товары для этого авто
+                        stmt = select(models.Product).join(
+                            models.product_vehicles,
+                            models.Product.id == models.product_vehicles.c.product_id
+                        ).where(
+                            models.product_vehicles.c.vehicle_id.in_(vehicle_ids)
+                        ).distinct().limit(8)
+                    
+                    result = await db.execute(stmt)
+                    products = result.scalars().all()
+                    search_method = f"по совместимости с {parsed['make'] or ''} {parsed['year'] or ''}"
+            
+            # 2. Fallback: текстовый поиск если ничего не нашли
+            if not products:
+                search_term = f"%{query}%"
+                stmt = select(models.Product).where(
+                    or_(
+                        models.Product.name.ilike(search_term),
+                        models.Product.part_number.ilike(search_term),
+                        models.Product.description.ilike(search_term)
+                    )
+                ).limit(8)
+                
+                result = await db.execute(stmt)
+                products = result.scalars().all()
+                search_method = "по названию"
             
             if not products:
-                return "Поиск не дал результатов. Предложите клиенту уточнить запрос или заказать через менеджера (notify_manager)."
+                # Если ничего не нашли — предлагаем уточнить
+                missing_info = []
+                if not parsed["make"]:
+                    missing_info.append("марку авто (RAM, Dodge, Ford, Chevrolet...)")
+                if not parsed["year"]:
+                    missing_info.append("год выпуска")
+                
+                if missing_info:
+                    return f"❌ Ничего не найдено по запросу '{query}'.\n\n💡 Уточните у клиента: {', '.join(missing_info)}.\n\nПример: 'Колодки на RAM 1500 2022'"
+                else:
+                    return "❌ По данному запросу ничего не найдено. Предложите клиенту уточнить запрос или свяжитесь с менеджером (notify_manager)."
             
-            res = f"✅ Найдено {len(products)} товаров:\n\n"
+            res = f"✅ Найдено {len(products)} товаров {search_method}:\n\n"
             for p in products:
                 price = f"{p.price_rub:,.0f} ₽" if p.price_rub else "Цена по запросу"
                 stock = "✅ В наличии" if p.is_in_stock else "⏱️ Под заказ (4-6 нед)"
