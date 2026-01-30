@@ -58,17 +58,18 @@ export default function Home() {
               <Image 
                 src="/logo-nobg.png" 
                 alt="RAM-US Logo" 
-                width={220} 
-                height={220} 
-                className="object-contain drop-shadow-[0_0_30px_rgba(214,45,45,0.6)]"
+                width={280} 
+                height={280} 
+                className="object-contain drop-shadow-[0_0_50px_rgba(214,45,45,0.5)]"
                 priority
               />
             </div>
 
             {/* Text */}
             <div className="text-center z-10 animate-fade-in-up delay-200">
-              <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight drop-shadow-lg">RAM-US</h1>
-              <p className="text-sm md:text-base text-white/80 mt-2 font-medium tracking-wide uppercase">Запчасти для американцев</p>
+              <p className="text-lg md:text-xl text-white/90 font-heading tracking-[0.2em] uppercase font-bold">
+                Запчасти для американцев
+              </p>
             </div>
 
             {/* Progress Bar */}
