@@ -210,6 +210,7 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                 res += f"   [ID для заказа: {p.id}]\n\n"
             
             res += "💡 Отправь клиенту ссылки на товары. Если хочет купить — используй create_order с ID товара."
+            print(f"✅ [AI Tool] Search results:\n{res}")
             return res
     except Exception as e:
         print(f"❌ DB Search Error: {e}")

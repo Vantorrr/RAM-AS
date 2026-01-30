@@ -26,6 +26,35 @@ export function AIAssistant() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
+  
+  // Функция для рендеринга сообщений с кликабельными ссылками
+  const renderMessageContent = (content: string) => {
+    // Регулярка для поиска URL
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const parts = content.split(urlRegex)
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80 break-all"
+            onClick={(e) => {
+              e.preventDefault()
+              // Открываем ссылку
+              window.open(part, '_blank')
+            }}
+          >
+            {part.includes('startapp=product') ? '🔗 Открыть товар' : part}
+          </a>
+        )
+      }
+      return <span key={index}>{part}</span>
+    })
+  }
 
   useEffect(() => {
     scrollToBottom()
@@ -60,8 +89,12 @@ export function AIAssistant() {
 
       if (res.ok) {
         const data = await res.json()
-        setMessages(prev => [...prev, { role: "assistant", content: data.content }])
+        const content = data.content || data.message || "Не удалось получить ответ. Попробуйте ещё раз."
+        console.log("AI Response:", data)
+        setMessages(prev => [...prev, { role: "assistant", content }])
       } else {
+        const errorText = await res.text()
+        console.error("AI Error:", res.status, errorText)
         setMessages(prev => [...prev, { role: "assistant", content: "Извините, я сейчас немного перегружен. Попробуйте позже или напишите менеджеру." }])
       }
     } catch (err) {
@@ -118,13 +151,13 @@ export function AIAssistant() {
                     className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                         msg.role === "user"
                           ? "bg-primary text-primary-foreground rounded-br-none"
                           : "bg-white/10 text-white rounded-bl-none"
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === "assistant" ? renderMessageContent(msg.content) : msg.content}
                     </div>
                   </div>
                 ))}
