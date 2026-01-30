@@ -109,6 +109,7 @@ def get_main_keyboard(is_admin_user: bool = False):
             InlineKeyboardButton(text="📍 О нас", callback_data="about")
         ],
         [InlineKeyboardButton(text="📞 Поддержка", callback_data="support")],
+        [InlineKeyboardButton(text="📢 Подписаться на канал", url="https://t.me/ramus_official")],
     ]
     
     if is_admin_user:
