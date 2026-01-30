@@ -265,6 +265,19 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
         </div>
       </section>
 
+      {/* Delivery Banner */}
+      <section className="px-4">
+        <Card className="bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-emerald-500/20 p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+            <Truck className="w-6 h-6 text-emerald-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-white text-sm">Доставка по всей России</h3>
+            <p className="text-xs text-emerald-300/70">СДЭК • Почта России • До двери</p>
+          </div>
+        </Card>
+      </section>
+
       {/* Featured Products Section (Витрина) */}
       <section className="px-4">
         <div className="flex items-center justify-between mb-4">
