@@ -107,6 +107,10 @@ function AdminContent() {
   
   // Showcase state
   const [showcaseSearchQuery, setShowcaseSearchQuery] = useState('')
+  
+  // Category dropdown state
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
+  const [categorySearchQuery, setCategorySearchQuery] = useState('')
   const [showcaseSearchResults, setShowcaseSearchResults] = useState<any[]>([])
   const [showcaseSearching, setShowcaseSearching] = useState(false)
   const [linkingProducts, setLinkingProducts] = useState(false)
@@ -1618,27 +1622,69 @@ function AdminContent() {
               />
             </div>
 
-            <div>
+            <div className="relative">
               <label className="text-xs text-muted-foreground mb-1 block">
                 <FolderTree className="h-3 w-3 inline mr-1" />
                 Категория
               </label>
-              <select 
-                value={editingProduct?.category_id || ''}
-                onChange={e => {
-                  if (editingProduct) {
-                    setEditingProduct({...editingProduct, category_id: parseInt(e.target.value) || 1})
-                  }
-                }}
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
+              
+              {/* Custom Dropdown Button */}
+              <button
+                type="button"
+                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-left flex items-center justify-between hover:bg-white/10 transition-colors"
               >
-                <option value="">Выберите категорию...</option>
-                {flattenCategories(categories).map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {'\u00A0'.repeat(cat.level * 3)}{cat.level > 0 ? '→ ' : ''}{cat.name}
-                  </option>
-                ))}
-              </select>
+                <span>
+                  {editingProduct?.category_id 
+                    ? flattenCategories(categories).find(c => c.id === editingProduct.category_id)?.name || 'Выберите категорию...'
+                    : 'Выберите категорию...'}
+                </span>
+                <ChevronRight className={`h-4 w-4 transition-transform ${categoryDropdownOpen ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Dropdown Panel */}
+              {categoryDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-zinc-900 border border-white/20 rounded-lg shadow-2xl max-h-64 overflow-hidden">
+                  {/* Search */}
+                  <div className="p-2 border-b border-white/10">
+                    <Input
+                      placeholder="Поиск категории..."
+                      value={categorySearchQuery}
+                      onChange={e => setCategorySearchQuery(e.target.value)}
+                      className="bg-white/5 border-white/10 text-sm h-8"
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {/* Categories List */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {flattenCategories(categories)
+                      .filter(cat => 
+                        categorySearchQuery === '' || 
+                        cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                      )
+                      .map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            if (editingProduct) {
+                              setEditingProduct({...editingProduct, category_id: cat.id})
+                            }
+                            setCategoryDropdownOpen(false)
+                            setCategorySearchQuery('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${
+                            editingProduct?.category_id === cat.id ? 'bg-primary/20 text-primary' : ''
+                          }`}
+                          style={{ paddingLeft: `${cat.level * 16 + 12}px` }}
+                        >
+                          {cat.level > 0 && '→ '}{cat.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1839,28 +1885,70 @@ function AdminContent() {
               />
             </div>
 
-            <div>
+            <div className="relative">
               <label className="text-xs text-muted-foreground mb-1 block">
                 <FolderTree className="h-3 w-3 inline mr-1" />
                 Категория
               </label>
-              <select 
-                value={editingProduct?.category_id || ''}
-                onChange={e => {
-                  setEditingProduct(prev => ({
-                    ...(prev || {} as Product),
-                    category_id: parseInt(e.target.value) || 1
-                  }))
-                }}
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm"
+              
+              {/* Custom Dropdown Button */}
+              <button
+                type="button"
+                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-left flex items-center justify-between hover:bg-white/10 transition-colors"
               >
-                <option value="">Выберите категорию...</option>
-                {flattenCategories(categories).map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {'\u00A0'.repeat(cat.level * 3)}{cat.level > 0 ? '→ ' : ''}{cat.name}
-                  </option>
-                ))}
-              </select>
+                <span>
+                  {editingProduct?.category_id 
+                    ? flattenCategories(categories).find(c => c.id === editingProduct.category_id)?.name || 'Выберите категорию...'
+                    : 'Выберите категорию...'}
+                </span>
+                <ChevronRight className={`h-4 w-4 transition-transform ${categoryDropdownOpen ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Dropdown Panel */}
+              {categoryDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-zinc-900 border border-white/20 rounded-lg shadow-2xl max-h-64 overflow-hidden">
+                  {/* Search */}
+                  <div className="p-2 border-b border-white/10">
+                    <Input
+                      placeholder="Поиск категории..."
+                      value={categorySearchQuery}
+                      onChange={e => setCategorySearchQuery(e.target.value)}
+                      className="bg-white/5 border-white/10 text-sm h-8"
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {/* Categories List */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {flattenCategories(categories)
+                      .filter(cat => 
+                        categorySearchQuery === '' || 
+                        cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                      )
+                      .map(cat => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setEditingProduct(prev => ({
+                              ...(prev || {} as Product),
+                              category_id: cat.id
+                            }))
+                            setCategoryDropdownOpen(false)
+                            setCategorySearchQuery('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors ${
+                            editingProduct?.category_id === cat.id ? 'bg-primary/20 text-primary' : ''
+                          }`}
+                          style={{ paddingLeft: `${cat.level * 16 + 12}px` }}
+                        >
+                          {cat.level > 0 && '→ '}{cat.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
