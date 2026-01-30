@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Package, CreditCard, MapPin, Check, Search, Loader2, Building2 } from "lucide-react"
+import { ArrowLeft, Package, MapPin, Check, Search, Loader2, Building2 } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { getTelegramUser } from "@/lib/telegram"
@@ -293,8 +293,8 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-24 px-4">
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 -mx-4 px-4 py-3 flex items-center gap-3">
+    <div className="flex flex-col h-full">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-white/5 px-4 py-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="-ml-2">
           <ArrowLeft className="h-6 w-6" />
         </Button>
@@ -304,7 +304,7 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 pb-32 space-y-6 pt-4">
         {/* Итого */}
         <Card className="bg-card/30 backdrop-blur-sm border-white/10 p-4">
           <div className="flex items-center gap-3 mb-3">
@@ -549,22 +549,16 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
           </div>
         </div>
 
-        {/* Оплата */}
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <CreditCard className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Оплата онлайн</h3>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            После нажатия кнопки вы перейдёте на безопасную страницу оплаты T-Bank. Принимаем карты и СБП.
-          </p>
-        </Card>
+      </form>
 
+      {/* Sticky кнопка оплаты */}
+      <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-white/10 p-4 z-20">
         <Button 
           type="submit" 
           size="lg" 
-          className="w-full bg-primary hover:bg-primary/90 font-bold shadow-lg"
+          className="w-full bg-primary hover:bg-primary/90 font-bold shadow-lg mb-2"
           disabled={loading || !isValidPhone(formData.phone) || (deliveryType !== 'pickup' && !selectedCity)}
+          onClick={handleSubmit}
         >
           {loading ? (
             <>
@@ -572,10 +566,13 @@ export function CheckoutView({ onBack, onSuccess }: CheckoutViewProps) {
               Оформление...
             </>
           ) : (
-            `Оплатить ${totalWithDelivery.toLocaleString('ru-RU')} ₽`
+            `Оформить заказ`
           )}
         </Button>
-      </form>
+        <p className="text-xs text-center text-muted-foreground">
+          После нажатия кнопки вы перейдёте на безопасную страницу оплаты T-Bank. Принимаем карты и СБП.
+        </p>
+      </div>
     </div>
   )
 }
