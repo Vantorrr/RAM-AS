@@ -62,6 +62,41 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
     }
   }, [])
 
+  // Автостарт с +7 при открытии модалки
+  useEffect(() => {
+    if (showPreorderModal && !preorderPhone) {
+      setPreorderPhone('+7 ')
+    }
+  }, [showPreorderModal])
+
+  // Форматирование телефона: +7 (999) 123-45-67
+  const formatPhoneNumber = (value: string) => {
+    // Удаляем все нецифровые символы
+    const cleaned = value.replace(/\D/g, '')
+    
+    // Ограничиваем до 11 цифр (российский номер)
+    const limited = cleaned.slice(0, 11)
+    
+    // Форматируем
+    if (limited.length === 0) return '+7 '
+    if (limited.length <= 1) return `+7 `
+    if (limited.length <= 4) return `+7 (${limited.slice(1)}`
+    if (limited.length <= 7) return `+7 (${limited.slice(1, 4)}) ${limited.slice(4)}`
+    if (limited.length <= 9) return `+7 (${limited.slice(1, 4)}) ${limited.slice(4, 7)}-${limited.slice(7)}`
+    return `+7 (${limited.slice(1, 4)}) ${limited.slice(4, 7)}-${limited.slice(7, 9)}-${limited.slice(9, 11)}`
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value
+    // Если пользователь пытается стереть всё, оставляем "+7 "
+    if (input.length < 3) {
+      setPreorderPhone('+7 ')
+      return
+    }
+    const formatted = formatPhoneNumber(input)
+    setPreorderPhone(formatted)
+  }
+
   useEffect(() => {
     async function fetchProduct() {
       try {
@@ -100,8 +135,8 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
       alert('Укажите ваше имя')
       return
     }
-    if (!preorderPhone.trim()) {
-      alert('Укажите ваш телефон')
+    if (!preorderPhone.trim() || preorderPhone.replace(/\D/g, '').length < 11) {
+      alert('Укажите корректный телефон (11 цифр)')
       return
     }
     
@@ -437,7 +472,7 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
                   type="tel"
                   placeholder="+7 (999) 123-45-67"
                   value={preorderPhone}
-                  onChange={(e) => setPreorderPhone(e.target.value)}
+                  onChange={handlePhoneChange}
                   className="bg-white/5 border-white/10"
                 />
               </div>
