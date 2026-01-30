@@ -248,10 +248,12 @@ async def create_order(items: List[Dict[str, int]], address: str = "Не ука�
                 "total_amount": new_order.total_amount,
                 "items": [
                     {
-                        "product_id": i["product"].id, 
-                        "quantity": i["quantity"]
+                        "product_id": i["product"].id,
+                        "product_name": i["product"].name,
+                        "quantity": i["quantity"],
+                        "price_at_purchase": i["price"]
                     } for i in order_items_db
-                ], # Упрощенный список для уведомления
+                ],
                 "created_at": datetime.now().strftime("%d.%m.%Y %H:%M")
             }
             # Запускаем в фоне (или await, т.к. мы в async)

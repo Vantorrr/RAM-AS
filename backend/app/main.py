@@ -1021,7 +1021,14 @@ async def create_order(
             "user_phone": db_order.user_phone,
             "delivery_address": db_order.delivery_address,
             "total_amount": db_order.total_amount,
-            "items": order.items,
+            "items": [
+                {
+                    "product_id": item.product_id,
+                    "product_name": item.product.name if item.product else f"Товар #{item.product_id}",
+                    "quantity": item.quantity,
+                    "price_at_purchase": item.price_at_purchase
+                } for item in db_order.items
+            ],
             "created_at": db_order.created_at.strftime("%d.%m.%Y %H:%M")
         }
     )

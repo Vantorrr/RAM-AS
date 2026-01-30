@@ -62,11 +62,25 @@ async def notify_new_order(order_data: dict):
     try:
         # Формируем список товаров
         items_list = ""
-        for item in order_data.get('items', []):
-            product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
-            quantity = item.get('quantity', 1)
-            price = item.get('price_at_purchase', 0)
+        items = order_data.get('items', [])
+        
+        for item in items:
+            # Обработка и словарей и Pydantic объектов
+            if isinstance(item, dict):
+                product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
+                quantity = item.get('quantity', 1)
+                price = item.get('price_at_purchase', 0)
+            else:
+                # Pydantic объект
+                product_name = getattr(item, 'product_name', f"Товар #{getattr(item, 'product_id', '?')}")
+                quantity = getattr(item, 'quantity', 1)
+                price = getattr(item, 'price_at_purchase', 0)
+            
             items_list += f"  • {product_name} — {quantity} шт × {price:,.0f} ₽\n"
+        
+        # Если список товаров пустой, показываем только количество
+        if not items_list:
+            items_list = f"  {len(items)} товар(ов)\n"
         
         message = (
             "🔔 <b>НОВЫЙ ЗАКАЗ!</b>\n\n"
