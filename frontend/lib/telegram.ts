@@ -37,6 +37,7 @@ declare global {
           }
           auth_date?: number
           hash?: string
+          start_param?: string  // Параметр из deep link (?startapp=xxx)
         }
         colorScheme: 'light' | 'dark'
         setHeaderColor: (color: string) => void
@@ -147,5 +148,34 @@ export function closeTelegramWebApp() {
   if (tg) {
     tg.close()
   }
+}
+
+/**
+ * Получает start_param из deep link (параметр ?startapp=xxx)
+ * Используется для открытия конкретного товара по ссылке от AI бота
+ */
+export function getStartParam(): string | null {
+  const tg = getTelegramWebApp()
+  if (tg?.initDataUnsafe?.start_param) {
+    return tg.initDataUnsafe.start_param
+  }
+  return null
+}
+
+/**
+ * Парсит start_param и возвращает ID товара если это ссылка на товар
+ * Формат: product_123 -> возвращает 123
+ */
+export function parseProductFromStartParam(): number | null {
+  const startParam = getStartParam()
+  if (!startParam) return null
+  
+  // Проверяем формат product_ID
+  const match = startParam.match(/^product_(\d+)$/)
+  if (match && match[1]) {
+    return parseInt(match[1], 10)
+  }
+  
+  return null
 }
 

@@ -10,7 +10,7 @@ import { ProductDetailView } from "@/components/views/product-detail-view"
 import { HomeView } from "@/components/views/home-view"
 import { BaraholkaView } from "@/components/views/baraholka-view"
 import { useState, useEffect, useRef } from "react"
-import { initTelegramWebApp } from "@/lib/telegram"
+import { initTelegramWebApp, parseProductFromStartParam } from "@/lib/telegram"
 import { useFavoritesStore } from "@/lib/favorites-store"
 
 export default function Home() {
@@ -23,8 +23,20 @@ export default function Home() {
     if (tg) {
       console.log("Telegram WebApp initialized")
       console.log("User:", tg.initDataUnsafe?.user)
+      console.log("Start param:", tg.initDataUnsafe?.start_param)
+      
       // Загружаем избранное при старте
       fetchFavorites()
+      
+      // Проверяем deep link на товар (от AI бота)
+      const productId = parseProductFromStartParam()
+      if (productId) {
+        console.log("🔗 Deep link to product:", productId)
+        // Открываем товар после скрытия splash screen
+        setTimeout(() => {
+          setSelectedProductId(productId)
+        }, 100)
+      }
     }
   }, [])
   
