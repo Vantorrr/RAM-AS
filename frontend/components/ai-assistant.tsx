@@ -35,6 +35,27 @@ export function AIAssistant() {
     
     return parts.map((part, index) => {
       if (part.match(urlRegex)) {
+        // Проверяем, это ссылка на товар?
+        const productMatch = part.match(/startapp=product_(\d+)/)
+        
+        if (productMatch) {
+          const productId = parseInt(productMatch[1], 10)
+          return (
+            <button 
+              key={index}
+              className="inline-flex items-center gap-1 text-primary underline hover:text-primary/80 font-medium"
+              onClick={() => {
+                // Закрываем чат и открываем товар через custom event
+                setIsOpen(false)
+                window.dispatchEvent(new CustomEvent('openProduct', { detail: { productId } }))
+              }}
+            >
+              🔗 Открыть товар
+            </button>
+          )
+        }
+        
+        // Обычная ссылка
         return (
           <a 
             key={index}
@@ -42,13 +63,8 @@ export function AIAssistant() {
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline hover:text-primary/80 break-all"
-            onClick={(e) => {
-              e.preventDefault()
-              // Открываем ссылку
-              window.open(part, '_blank')
-            }}
           >
-            {part.includes('startapp=product') ? '🔗 Открыть товар' : part}
+            {part}
           </a>
         )
       }

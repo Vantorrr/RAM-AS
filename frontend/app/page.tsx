@@ -47,6 +47,19 @@ export default function Home() {
   
   // СОХРАНЯЕМ позицию скролла и состояние CatalogView
   const catalogScrollRef = useRef<number>(0)
+  
+  // Слушаем событие открытия товара из AI чата
+  useEffect(() => {
+    const handleOpenProduct = (event: CustomEvent<{ productId: number }>) => {
+      console.log('🤖 AI requested product:', event.detail.productId)
+      setSelectedProductId(event.detail.productId)
+    }
+    
+    window.addEventListener('openProduct', handleOpenProduct as EventListener)
+    return () => {
+      window.removeEventListener('openProduct', handleOpenProduct as EventListener)
+    }
+  }, [])
 
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />
