@@ -41,7 +41,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 }
 
 interface HomeViewProps {
-  onCategoryClick: (categoryId: number) => void
+  onCategoryClick: (categoryId?: number) => void
   onProductClick: (productId: number) => void
   onViewAllProducts: () => void
 }
@@ -174,10 +174,19 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
             <div className="text-sm font-bold">Каталог</div>
             <div className="text-xs text-muted-foreground">13 000+ товаров</div>
           </Card>
-          <Card className="flex-1 bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/20 p-4">
-            <Truck className="h-6 w-6 text-green-400 mb-2" />
-            <div className="text-sm font-bold">Доставка</div>
-            <div className="text-xs text-muted-foreground">СДЭК по РФ</div>
+          <Card 
+            className="flex-1 bg-gradient-to-br from-orange-500/30 to-red-500/20 border-orange-500/30 p-4 cursor-pointer hover:scale-[1.05] transition-all relative overflow-hidden group"
+            onClick={onViewAllProducts}
+          >
+            {/* Breathing glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/40 to-red-500/40 animate-[pulse_2s_ease-in-out_infinite] blur-xl" />
+            
+            {/* Content */}
+            <div className="relative z-10">
+              <Zap className="h-6 w-6 text-orange-400 mb-2 animate-[pulse_1.5s_ease-in-out_infinite] drop-shadow-[0_0_8px_rgba(251,146,60,0.8)]" />
+              <div className="text-sm font-bold text-white drop-shadow-lg">Тюнинг</div>
+              <div className="text-xs text-orange-200/80">Доп. оборудование</div>
+            </div>
           </Card>
         </div>
       </div>
@@ -254,19 +263,6 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
             <p className="text-[10px] text-white/60">Товаров</p>
           </Card>
         </div>
-      </section>
-
-      {/* Delivery Banner */}
-      <section className="px-4">
-        <Card className="bg-gradient-to-r from-emerald-500/15 to-teal-500/10 border-emerald-500/20 p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-            <Truck className="w-6 h-6 text-emerald-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-white text-sm">Доставка по всей России</h3>
-            <p className="text-xs text-emerald-300/70">СДЭК • Почта России • До двери</p>
-          </div>
-        </Card>
       </section>
 
       {/* Featured Products Section (Витрина) */}
