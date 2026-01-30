@@ -461,6 +461,13 @@ async def startup():
             except Exception:
                 pass
         print("✅ Added CDEK columns to orders")
+        
+        # Миграция для is_preorder в order_items
+        try:
+            await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS is_preorder BOOLEAN DEFAULT FALSE"))
+            print("✅ Added is_preorder column to order_items")
+        except Exception as e:
+            print(f"⚠️ is_preorder column: {e}")
     
     print("✅ Database ready!")
     
