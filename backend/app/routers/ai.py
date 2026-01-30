@@ -503,10 +503,20 @@ async def chat_with_ai(request: ChatRequest):
                 
                 async with session.post(endpoint, headers=headers, json=payload) as resp2:
                     if resp2.status != 200:
-                        return {"role": "assistant", "content": f"Операция выполнена: {tool_result}"}
+                        error_text = await resp2.text()
+                        print(f"❌ AI second call failed: {resp2.status} - {error_text[:200]}")
+                        return {"role": "assistant", "content": f"Вот что я нашёл:\n\n{tool_result}"}
 
                     data2 = await resp2.json()
-                    final_msg = data2["choices"][0]["message"]["content"]
+                    print(f"📤 AI second response: {json.dumps(data2, ensure_ascii=False)[:500]}")
+                    
+                    final_msg = data2.get("choices", [{}])[0].get("message", {}).get("content")
+                    
+                    # Если AI вернул пустой контент, формируем ответ сами
+                    if not final_msg:
+                        print("⚠️ AI returned empty content, using tool result directly")
+                        return {"role": "assistant", "content": f"Вот что я нашёл:\n\n{tool_result}"}
+                    
                     return {"role": "assistant", "content": final_msg}
 
         except Exception as e:
