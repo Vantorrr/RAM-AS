@@ -1057,9 +1057,7 @@ async def create_preorder(
             f"⚠️ <i>Свяжитесь с клиентом для уточнения деталей!</i>"
         )
         
-        background_tasks.add_task(
-            lambda: asyncio.create_task(_send_preorder_notification(message))
-        )
+        background_tasks.add_task(_send_preorder_notification, message)
     
     return {"status": "ok", "message": "Заявка принята"}
 
