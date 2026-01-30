@@ -286,40 +286,43 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                     # Если есть запрос на запчасть — фильтруем по названию
                     part_term = parsed["part_query"]
                     
-                    # Используем raw SQL для надёжности с many-to-many
-                    if part_term and len(part_term) > 2:
-                        sql = sql_text("""
-                            SELECT DISTINCT p.* FROM products p
-                            JOIN product_vehicles pv ON p.id = pv.product_id
-                            WHERE pv.vehicle_id = ANY(:vehicle_ids)
-                            AND (p.name ILIKE :search OR p.description ILIKE :search)
-                            LIMIT 8
-                        """)
-                        result = await db.execute(sql, {
-                            "vehicle_ids": vehicle_ids,
-                            "search": f"%{part_term}%"
-                        })
-                    else:
-                        # Показываем популярные товары для этого авто
-                        sql = sql_text("""
-                            SELECT DISTINCT p.* FROM products p
-                            JOIN product_vehicles pv ON p.id = pv.product_id
-                            WHERE pv.vehicle_id = ANY(:vehicle_ids)
-                            LIMIT 8
-                        """)
-                        result = await db.execute(sql, {"vehicle_ids": vehicle_ids})
-                    
-                    rows = result.fetchall()
-                    print(f"📦 Found {len(rows)} products via SQL")
-                    
-                    # Конвертируем в объекты Product
-                    if rows:
-                        product_ids = [row[0] for row in rows]  # row[0] = id
-                        stmt = select(models.Product).where(models.Product.id.in_(product_ids))
-                        result2 = await db.execute(stmt)
-                        products = result2.scalars().all()
-                    
-                    search_method = f"по совместимости с {parsed['make'] or ''} {parsed['year'] or ''}"
+                    try:
+                        # Формируем список ID для SQL IN (...)
+                        ids_str = ",".join(str(id) for id in vehicle_ids[:50])  # Ограничим до 50
+                        
+                        if part_term and len(part_term) > 2:
+                            sql = sql_text(f"""
+                                SELECT DISTINCT p.id FROM products p
+                                JOIN product_vehicles pv ON p.id = pv.product_id
+                                WHERE pv.vehicle_id IN ({ids_str})
+                                AND (p.name ILIKE :search OR p.description ILIKE :search)
+                                LIMIT 8
+                            """)
+                            result = await db.execute(sql, {"search": f"%{part_term}%"})
+                        else:
+                            sql = sql_text(f"""
+                                SELECT DISTINCT p.id FROM products p
+                                JOIN product_vehicles pv ON p.id = pv.product_id
+                                WHERE pv.vehicle_id IN ({ids_str})
+                                LIMIT 8
+                            """)
+                            result = await db.execute(sql)
+                        
+                        rows = result.fetchall()
+                        print(f"📦 Found {len(rows)} products via SQL")
+                        
+                        # Получаем полные объекты Product
+                        if rows:
+                            product_ids = [row[0] for row in rows]
+                            stmt = select(models.Product).where(models.Product.id.in_(product_ids))
+                            result2 = await db.execute(stmt)
+                            products = result2.scalars().all()
+                        
+                        search_method = f"по совместимости с {parsed['make'] or ''} {parsed['year'] or ''}"
+                    except Exception as e:
+                        print(f"❌ Vehicle search error: {e}")
+                        import traceback
+                        traceback.print_exc()
             
             # 2. Fallback: текстовый поиск если ничего не нашли
             if not products:
