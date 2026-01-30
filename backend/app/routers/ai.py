@@ -186,6 +186,8 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
 async def create_order(items: List[Dict[str, int]], address: str = "Не указан", phone: str = "Не указан", name: str = "Клиент", telegram_id: int = None) -> str:
     """Создает заказ в БД."""
     print(f"🛒 [AI Tool] Creating order for {name} ({phone}): {items}")
+    print(f"📍 Address: {address}")
+    print(f"🆔 Telegram ID: {telegram_id}")
     
     try:
         async with SessionLocal() as db:
@@ -266,7 +268,30 @@ async def create_order(items: List[Dict[str, int]], address: str = "Не ука�
 
     except Exception as e:
         print(f"❌ Create Order Error: {e}")
-        return f"Ошибка при создании заказа: {str(e)}"
+        import traceback
+        traceback.print_exc()
+        
+        # Уведомляем админов об ошибке
+        from app.bot import bot as global_bot
+        if global_bot and ADMIN_CHAT_IDS:
+            error_text = (
+                f"⚠️ <b>Ошибка создания заказа через ИИ</b>\n\n"
+                f"👤 <b>Клиент:</b> {name} ({phone})\n"
+                f"📦 <b>Товары:</b> {items}\n"
+                f"❌ <b>Ошибка:</b> {str(e)[:200]}\n\n"
+                f"💡 <i>Свяжитесь с клиентом для оформления заказа вручную!</i>"
+            )
+            for admin_id in ADMIN_CHAT_IDS:
+                try:
+                    await global_bot.send_message(
+                        chat_id=admin_id.strip(),
+                        text=error_text,
+                        parse_mode="HTML"
+                    )
+                except:
+                    pass
+        
+        return f"⚠️ Не удалось автоматически оформить заказ. Я передал вашу заявку менеджеру! Вам позвонят в ближайшее время для уточнения деталей."
 
 async def notify_manager(message: str, contact_info: str = "Не указаны") -> str:
     """Отправляет уведомление в Telegram админу."""
@@ -274,7 +299,13 @@ async def notify_manager(message: str, contact_info: str = "Не указаны"
     if not BOT_TOKEN:
         return "Ошибка: Бот не настроен."
     
-    bot = Bot(token=BOT_TOKEN)
+    # Используем глобальный бот вместо создания нового
+    from app.bot import bot as global_bot
+    
+    if not global_bot:
+        print("❌ Global bot not initialized")
+        return "Ошибка: Бот не инициализирован."
+    
     text = (
         f"🤖 <b>AI-Ассистент: Заявка от клиента</b>\n\n"
         f"📩 <b>Запрос:</b> {message}\n"
@@ -288,15 +319,16 @@ async def notify_manager(message: str, contact_info: str = "Не указаны"
             cid = chat_id.strip()
             if cid:
                 try:
-                    await bot.send_message(chat_id=cid, text=text, parse_mode="HTML")
+                    await global_bot.send_message(chat_id=cid, text=text, parse_mode="HTML")
                     sent_count += 1
-                except:
-                    pass
-        await bot.session.close()
-        return "Уведомление отправлено менеджерам." if sent_count > 0 else "Ошибка: нет админов."
+                    print(f"✅ Notification sent to admin {cid}")
+                except Exception as e:
+                    print(f"❌ Failed to send to {cid}: {e}")
+        
+        return "✅ Уведомление отправлено менеджерам. Ожидайте звонка!" if sent_count > 0 else "⚠️ Не удалось отправить уведомление. Попробуйте позвонить по номеру в боте."
     except Exception as e:
-        await bot.session.close()
-        return f"Ошибка отправки: {str(e)}"
+        print(f"❌ Notify manager error: {e}")
+        return f"⚠️ Ошибка уведомления. Позвоните нам напрямую!"
 
 # --- Main Chat Handler ---
 
@@ -340,6 +372,32 @@ async def chat_with_ai(request: ChatRequest):
             if m['role'] == 'system':
                 m['content'] = system_content
                 break
+    
+    # Уведомление админов о начале диалога (только первое сообщение)
+    user_messages = [m for m in messages if m.get('role') == 'user']
+    if len(user_messages) == 1:
+        # Это первое сообщение пользователя
+        first_message = user_messages[0].get('content', '')
+        
+        from app.bot import bot as global_bot
+        if global_bot and ADMIN_CHAT_IDS:
+            notification_text = (
+                f"💬 <b>Новый диалог с AI-ассистентом</b>\n\n"
+                f"👤 <b>Клиент:</b> {user_name_ctx}\n"
+                f"🆔 <b>Telegram ID:</b> {user_id or 'Неизвестен'}\n"
+                f"📝 <b>Первое сообщение:</b>\n{first_message[:200]}{'...' if len(first_message) > 200 else ''}\n\n"
+                f"💡 <i>Клиент общается с ИИ-ассистентом</i>"
+            )
+            
+            for admin_id in ADMIN_CHAT_IDS:
+                try:
+                    await global_bot.send_message(
+                        chat_id=admin_id.strip(),
+                        text=notification_text,
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    print(f"❌ Failed to notify admin {admin_id}: {e}")
 
     payload = {
         "model": MODEL,
