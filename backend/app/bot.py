@@ -219,9 +219,8 @@ async def show_support(callback: types.CallbackQuery):
 
 Есть вопросы? Мы на связи!
 
-📱 <b>Telegram:</b> @ram_us_support
-📧 <b>Email:</b> info@ram-us.ru
-📞 <b>Телефон:</b> +7 (812) XXX-XX-XX
+📱 <b>Telegram:</b> @RAMUS_PARTS
+📞 <b>Телефон:</b> +7 933 566 8777
 
 ⏰ <b>Режим работы:</b>
 Пн-Пт: 9:00 - 20:00
