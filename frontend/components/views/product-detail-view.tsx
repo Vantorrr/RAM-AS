@@ -130,7 +130,7 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
         />
         {!product.is_in_stock && (
           <Badge variant="destructive" className="absolute top-4 right-4 shadow-lg">
-            Нет в наличии
+            Под заказ
           </Badge>
         )}
         {product.is_in_stock && (
@@ -326,7 +326,7 @@ export function ProductDetailView({ productId, onBack }: ProductDetailViewProps)
             ) : (
               <>
                 <ShoppingCart className="mr-2 h-5 w-5" />
-                {product.is_in_stock ? "Добавить в корзину" : "Нет в наличии"}
+                {product.is_in_stock ? "Добавить в корзину" : "Под заказ"}
               </>
             )}
           </Button>
