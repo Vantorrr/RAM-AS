@@ -278,15 +278,19 @@ export function HomeView({ onCategoryClick, onProductClick, onViewAllProducts }:
         </div>
         
         {loading ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
             {Array.from({ length: 4 }).map((_, i) => (
-              <ProductCardSkeleton key={i} />
+              <div key={i} className="flex-shrink-0 w-[45%] snap-start">
+                <ProductCardSkeleton />
+              </div>
             ))}
           </div>
         ) : (featuredProducts.length > 0 ? featuredProducts : products).length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
-            {(featuredProducts.length > 0 ? featuredProducts : products).slice(0, 4).map((product) => (
-              <ProductCard key={product.id} product={product} onClick={onProductClick} />
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+            {(featuredProducts.length > 0 ? featuredProducts : products).map((product) => (
+              <div key={product.id} className="flex-shrink-0 w-[45%] snap-start">
+                <ProductCard product={product} onClick={onProductClick} />
+              </div>
             ))}
           </div>
         ) : (
