@@ -80,7 +80,7 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         </Button>
 
         {!product.is_in_stock && (
-             <Badge variant="destructive" className="absolute top-1.5 right-1.5 shadow-lg text-[10px] px-1.5 h-5">Нет</Badge>
+             <Badge variant="destructive" className="absolute top-1.5 right-1.5 shadow-lg text-[10px] px-1.5 h-5">Под заказ</Badge>
         )}
         {product.is_in_stock && (
              <Badge className="absolute top-1.5 right-1.5 bg-green-600 hover:bg-green-700 text-white shadow-lg border-0 text-[10px] px-1.5 h-5">В наличии</Badge>
