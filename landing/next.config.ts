@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
+  // Для Railway используем обычный сервер, не static export
   images: {
     unoptimized: true,
   },
