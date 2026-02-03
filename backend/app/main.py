@@ -696,7 +696,7 @@ async def read_products(
             )
         
         # Убираем дубликаты, если товар подходит к нескольким подходящим машинам
-        query = query.distinct()
+        query = query.distinct(models.Product.id)
     elif (vehicle_make or vehicle_model) and links_count == 0:
         print(f"⚠️ AI еще не отработал (0 связей), показываем ВСЕ товары")
     
