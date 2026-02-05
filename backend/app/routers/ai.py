@@ -238,6 +238,45 @@ def parse_vehicle_from_query(query: str) -> dict:
     
     return result
 
+# Синонимы и транслитерация (русский <-> английский)
+TERM_SYNONYMS = {
+    # АБС/ABS
+    "абс": ["abs", "абс"],
+    "abs": ["abs", "абс"],
+    # Другие частые термины
+    "тпмс": ["tpms", "тпмс"],
+    "tpms": ["tpms", "тпмс"],
+    "эбу": ["ecu", "эбу"],
+    "ecu": ["ecu", "эбу"],
+    "есп": ["esp", "есп"],
+    "esp": ["esp", "есп"],
+    "эсп": ["esp", "эсп"],
+    "акпп": ["акпп", "transmission", "auto"],
+    "мкпп": ["мкпп", "manual"],
+    "двс": ["двс", "engine", "двигатель"],
+    "гур": ["гур", "power steering"],
+    "эур": ["эур", "electric steering"],
+    "грм": ["грм", "timing"],
+    "шрус": ["шрус", "cv joint"],
+    "суппорт": ["суппорт", "caliper"],
+    "caliper": ["caliper", "суппорт"],
+    "радиатор": ["радиатор", "radiator"],
+    "radiator": ["radiator", "радиатор"],
+    "генератор": ["генератор", "alternator"],
+    "alternator": ["alternator", "генератор"],
+    "стартер": ["стартер", "starter"],
+    "starter": ["starter", "стартер"],
+}
+
+def expand_search_terms(words: list) -> list:
+    """Расширяет поисковые слова синонимами и транслитерацией."""
+    expanded = set(words)
+    for word in words:
+        word_lower = word.lower()
+        if word_lower in TERM_SYNONYMS:
+            expanded.update(TERM_SYNONYMS[word_lower])
+    return list(expanded)
+
 async def search_auto_parts(query: str, vin: str = None) -> str:
     """Умный поиск запчастей в БД — ищет по словам, с fallback и подсказками."""
     print(f"🔎 [AI Tool] Searching parts: query='{query}', VIN='{vin}'")
@@ -262,7 +301,9 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
         model_lower = parsed["model"].lower()
         search_words = [w for w in search_words if w != model_lower]
     
-    print(f"🔤 Search words: {search_words}")
+    # Расширяем слова синонимами (АБС -> ABS и т.д.)
+    search_words = expand_search_terms(search_words)
+    print(f"🔤 Expanded search words: {search_words}")
     
     try:
         async with SessionLocal() as db:
