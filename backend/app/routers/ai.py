@@ -341,12 +341,19 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                     
                     try:
                         if search_words:
+                            # Добавляем сортировку по релевантности
+                            match_expressions = []
+                            for w in search_words[:8]:
+                                match_expressions.append(f"CASE WHEN p.name ILIKE '%{w}%' THEN 1 ELSE 0 END")
+                            relevance_score = " + ".join(match_expressions) if match_expressions else "0"
+                            
                             word_conditions = " OR ".join([f"(p.name ILIKE '%{w}%' OR p.description ILIKE '%{w}%')" for w in search_words[:8]])
                             sql = sql_text(f"""
-                                SELECT DISTINCT p.id FROM products p
+                                SELECT DISTINCT p.id, ({relevance_score}) as score FROM products p
                                 JOIN product_vehicles pv ON p.id = pv.product_id
                                 WHERE pv.vehicle_id IN ({ids_str})
                                 AND ({word_conditions})
+                                ORDER BY score DESC
                                 LIMIT 8
                             """)
                         else:
@@ -375,10 +382,19 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
             
             # СТРАТЕГИЯ 2: ВСЕГДА делаем текстовый поиск и добавляем товары
             if search_words:
+                # Строим запрос с подсчётом совпадений для сортировки по релевантности
+                match_expressions = []
+                for w in search_words[:8]:
+                    match_expressions.append(f"CASE WHEN name ILIKE '%{w}%' THEN 1 ELSE 0 END")
+                    match_expressions.append(f"CASE WHEN part_number ILIKE '%{w}%' THEN 1 ELSE 0 END")
+                
+                relevance_score = " + ".join(match_expressions)
                 word_conditions = " OR ".join([f"(name ILIKE '%{w}%' OR part_number ILIKE '%{w}%' OR description ILIKE '%{w}%')" for w in search_words[:8]])
+                
                 sql = sql_text(f"""
-                    SELECT id FROM products 
+                    SELECT id, ({relevance_score}) as score FROM products 
                     WHERE {word_conditions}
+                    ORDER BY score DESC
                     LIMIT 12
                 """)
                 
