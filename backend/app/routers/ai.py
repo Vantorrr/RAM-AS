@@ -307,8 +307,12 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
     
     try:
         async with SessionLocal() as db:
-            products = []
+            compatible_products = []  # Товары совместимые с авто
+            text_products = []  # Товары найденные по тексту
+            compatible_ids = set()
             search_method = ""
+            
+            from sqlalchemy import text as sql_text
             
             # СТРАТЕГИЯ 1: Поиск по совместимости с авто + название запчасти
             if parsed["make"] or parsed["year"]:
@@ -333,27 +337,24 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                 print(f"🚗 Found {len(vehicle_ids)} matching vehicles")
                 
                 if vehicle_ids:
-                    from sqlalchemy import text as sql_text
                     ids_str = ",".join(str(id) for id in vehicle_ids[:100])
                     
                     try:
-                        # Ищем товары совместимые с авто, которые содержат ЛЮБОЕ из слов запроса
                         if search_words:
-                            word_conditions = " OR ".join([f"(p.name ILIKE '%{w}%' OR p.description ILIKE '%{w}%')" for w in search_words[:5]])
+                            word_conditions = " OR ".join([f"(p.name ILIKE '%{w}%' OR p.description ILIKE '%{w}%')" for w in search_words[:8]])
                             sql = sql_text(f"""
-                                SELECT DISTINCT p.id, p.name FROM products p
+                                SELECT DISTINCT p.id FROM products p
                                 JOIN product_vehicles pv ON p.id = pv.product_id
                                 WHERE pv.vehicle_id IN ({ids_str})
                                 AND ({word_conditions})
-                                LIMIT 10
+                                LIMIT 8
                             """)
                         else:
-                            # Если нет слов для поиска — просто показываем товары для этого авто
                             sql = sql_text(f"""
-                                SELECT DISTINCT p.id, p.name FROM products p
+                                SELECT DISTINCT p.id FROM products p
                                 JOIN product_vehicles pv ON p.id = pv.product_id
                                 WHERE pv.vehicle_id IN ({ids_str})
-                                LIMIT 10
+                                LIMIT 8
                             """)
                         
                         result = await db.execute(sql)
@@ -362,40 +363,43 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                         
                         if rows:
                             product_ids = [row[0] for row in rows]
+                            compatible_ids = set(product_ids)
                             stmt = select(models.Product).where(models.Product.id.in_(product_ids))
                             result2 = await db.execute(stmt)
-                            products = result2.scalars().all()
+                            compatible_products = result2.scalars().all()
                             search_method = f"для {parsed['make'] or ''} {parsed['model'] or ''} {parsed['year'] or ''}"
                     except Exception as e:
                         print(f"❌ Vehicle search error: {e}")
                         import traceback
                         traceback.print_exc()
             
-            # СТРАТЕГИЯ 2: Текстовый поиск по каждому слову (если нет результатов по авто)
-            if not products and search_words:
-                from sqlalchemy import text as sql_text
-                
-                # Ищем товары содержащие ЛЮБОЕ из слов
-                word_conditions = " OR ".join([f"(name ILIKE '%{w}%' OR part_number ILIKE '%{w}%' OR description ILIKE '%{w}%')" for w in search_words[:5]])
+            # СТРАТЕГИЯ 2: ВСЕГДА делаем текстовый поиск и добавляем товары
+            if search_words:
+                word_conditions = " OR ".join([f"(name ILIKE '%{w}%' OR part_number ILIKE '%{w}%' OR description ILIKE '%{w}%')" for w in search_words[:8]])
                 sql = sql_text(f"""
                     SELECT id FROM products 
                     WHERE {word_conditions}
-                    LIMIT 10
+                    LIMIT 12
                 """)
                 
                 result = await db.execute(sql)
                 rows = result.fetchall()
-                print(f"📦 Found {len(rows)} products via word search")
+                print(f"📦 Found {len(rows)} products via text search")
                 
                 if rows:
-                    product_ids = [row[0] for row in rows]
-                    stmt = select(models.Product).where(models.Product.id.in_(product_ids))
-                    result2 = await db.execute(stmt)
-                    products = result2.scalars().all()
-                    search_method = "по названию"
+                    # Убираем те что уже найдены по совместимости
+                    text_product_ids = [row[0] for row in rows if row[0] not in compatible_ids]
+                    if text_product_ids:
+                        stmt = select(models.Product).where(models.Product.id.in_(text_product_ids[:8]))
+                        result2 = await db.execute(stmt)
+                        text_products = result2.scalars().all()
             
-            # СТРАТЕГИЯ 3: Поиск похожих товаров (если ничего не найдено)
-            if not products:
+            # Объединяем результаты
+            products = compatible_products  # Сначала совместимые
+            has_additional = len(text_products) > 0
+            
+            # СТРАТЕГИЯ 3: Поиск похожих товаров (если совсем ничего не найдено)
+            if not products and not text_products:
                 # Берем первое слово и ищем частичное совпадение
                 if search_words:
                     main_word = search_words[0]
@@ -417,7 +421,7 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                         search_method = "похожие товары"
             
             # Формируем ответ
-            if not products:
+            if not products and not text_products:
                 # Получаем количество товаров в базе для контекста
                 count_result = await db.execute(select(models.Product.id))
                 total_products = len(count_result.fetchall())
@@ -442,21 +446,47 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                 return response
             
             # Успешный ответ с товарами
-            res = f"✅ Найдено {len(products)} товаров {search_method}:\n\n"
-            for p in products:
-                price = f"{p.price_rub:,.0f} ₽" if p.price_rub else "Цена по запросу"
-                stock = "✅ В наличии" if p.is_in_stock else "⏱️ Под заказ (4-6 нед)"
-                
-                product_link = f"https://t.me/{BOT_USERNAME}/app?startapp=product_{p.id}"
-                
-                res += f"🔹 **{p.name}**\n"
-                if p.part_number:
-                    res += f"   Артикул: {p.part_number}\n"
-                res += f"   💰 {price} | {stock}\n"
-                res += f"   👉 {product_link}\n"
-                res += f"   [ID: {p.id}]\n\n"
+            total_found = len(products) + len(text_products)
+            res = f"✅ Найдено {total_found} товаров"
+            if search_method:
+                res += f" {search_method}"
+            res += ":\n\n"
             
-            res += "💡 Клиент может кликнуть на ссылку чтобы увидеть фото и детали. Для заказа используй create_order."
+            # Сначала совместимые с авто (если есть)
+            if products:
+                if parsed["make"] or parsed["year"]:
+                    res += f"🚗 **Подходят для {parsed['make'] or ''} {parsed['model'] or ''} {parsed['year'] or ''}:**\n\n"
+                
+                for p in products:
+                    price = f"{p.price_rub:,.0f} ₽" if p.price_rub else "Цена по запросу"
+                    stock = "✅ В наличии" if p.is_in_stock else "⏱️ Под заказ"
+                    product_link = f"https://t.me/{BOT_USERNAME}/app?startapp=product_{p.id}"
+                    
+                    res += f"🔹 **{p.name}**\n"
+                    if p.part_number:
+                        res += f"   Артикул: {p.part_number}\n"
+                    res += f"   💰 {price} | {stock}\n"
+                    res += f"   👉 {product_link}\n"
+                    res += f"   [ID: {p.id}]\n\n"
+            
+            # Потом дополнительные из текстового поиска
+            if text_products:
+                if products:  # Если были совместимые - добавляем разделитель
+                    res += f"📦 **Другие варианты (уточните совместимость):**\n\n"
+                
+                for p in text_products[:5]:  # Максимум 5 дополнительных
+                    price = f"{p.price_rub:,.0f} ₽" if p.price_rub else "Цена по запросу"
+                    stock = "✅ В наличии" if p.is_in_stock else "⏱️ Под заказ"
+                    product_link = f"https://t.me/{BOT_USERNAME}/app?startapp=product_{p.id}"
+                    
+                    res += f"🔸 **{p.name}**\n"
+                    if p.part_number:
+                        res += f"   Артикул: {p.part_number}\n"
+                    res += f"   💰 {price} | {stock}\n"
+                    res += f"   👉 {product_link}\n"
+                    res += f"   [ID: {p.id}]\n\n"
+            
+            res += "💡 Клиент может кликнуть на ссылку. Для заказа используй create_order."
             print(f"✅ [AI Tool] Search results:\n{res}")
             return res
             
