@@ -354,14 +354,14 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                                 WHERE pv.vehicle_id IN ({ids_str})
                                 AND ({word_conditions})
                                 ORDER BY score DESC
-                                LIMIT 8
+                                LIMIT 15
                             """)
                         else:
                             sql = sql_text(f"""
                                 SELECT DISTINCT p.id FROM products p
                                 JOIN product_vehicles pv ON p.id = pv.product_id
                                 WHERE pv.vehicle_id IN ({ids_str})
-                                LIMIT 8
+                                LIMIT 15
                             """)
                         
                         result = await db.execute(sql)
@@ -395,7 +395,7 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                     SELECT id, ({relevance_score}) as score FROM products 
                     WHERE {word_conditions}
                     ORDER BY score DESC
-                    LIMIT 12
+                    LIMIT 20
                 """)
                 
                 result = await db.execute(sql)
@@ -406,7 +406,7 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                     # Убираем те что уже найдены по совместимости
                     text_product_ids = [row[0] for row in rows if row[0] not in compatible_ids]
                     if text_product_ids:
-                        stmt = select(models.Product).where(models.Product.id.in_(text_product_ids[:8]))
+                        stmt = select(models.Product).where(models.Product.id.in_(text_product_ids[:15]))
                         result2 = await db.execute(stmt)
                         text_products = result2.scalars().all()
             
@@ -490,7 +490,7 @@ async def search_auto_parts(query: str, vin: str = None) -> str:
                 if products:  # Если были совместимые - добавляем разделитель
                     res += f"📦 **Другие варианты (уточните совместимость):**\n\n"
                 
-                for p in text_products[:5]:  # Максимум 5 дополнительных
+                for p in text_products[:10]:  # Максимум 10 дополнительных
                     price = f"{p.price_rub:,.0f} ₽" if p.price_rub else "Цена по запросу"
                     stock = "✅ В наличии" if p.is_in_stock else "⏱️ Под заказ"
                     product_link = f"https://t.me/{BOT_USERNAME}/app?startapp=product_{p.id}"
