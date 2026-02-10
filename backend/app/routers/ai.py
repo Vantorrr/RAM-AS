@@ -591,7 +591,7 @@ async def create_order(items: List[Dict[str, int]], address: str = "Не ука�
                         "is_preorder": i["product"].is_preorder
                     } for i in order_items_db
                 ],
-                "created_at": datetime.now().strftime("%d.%m.%Y %H:%M")
+                "created_at": datetime.now().strftime("%d.%m.%Y %H:%M")  # время берётся из bot.py
             }
         
         # 5. Уведомляем админов ПОСЛЕ закрытия сессии

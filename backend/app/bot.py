@@ -1,11 +1,14 @@
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, InputMediaPhoto
 from dotenv import load_dotenv
 import os
+
+MSK = timezone(timedelta(hours=3))
 
 # Путь к изображению
 BOT_IMAGE_PATH = os.path.join(os.path.dirname(__file__), "bot_image.jpg")
@@ -106,7 +109,7 @@ async def notify_new_order(order_data: dict):
             f"🛒 <b>Товары:</b>\n{items_list}\n"
             f"💰 <b>Итого:</b> {order_data['total_amount']:,.0f} ₽\n"
             f"💳 <b>Статус:</b> {payment_status}\n\n"
-            f"⏰ Время: {order_data.get('created_at', 'сейчас')}"
+            f"⏰ Время: {datetime.now(MSK).strftime('%d.%m.%Y %H:%M')} (МСК)"
         )
         for admin_id in ADMIN_CHAT_IDS:
             try:
