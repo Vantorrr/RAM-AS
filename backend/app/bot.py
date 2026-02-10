@@ -100,9 +100,10 @@ async def notify_new_order(order_data: dict):
         else:
             payment_status = f"ℹ️ {status}"
         
+        order_id = order_data['id']
         message = (
             "🔔 <b>НОВЫЙ ЗАКАЗ!</b>\n\n"
-            f"📦 Заказ #{order_data['id']}\n"
+            f"📦 Заказ #{order_id}\n"
             f"👤 Клиент: {order_data.get('user_name', 'Не указано')}\n"
             f"📱 Телефон: {order_data.get('user_phone', 'Не указано')}\n"
             f"📍 Адрес: {order_data.get('delivery_address', 'Не указано')}\n\n"
@@ -111,9 +112,21 @@ async def notify_new_order(order_data: dict):
             f"💳 <b>Статус:</b> {payment_status}\n\n"
             f"⏰ Время: {datetime.now(MSK).strftime('%d.%m.%Y %H:%M')} (МСК)"
         )
+        
+        # Инлайн-кнопки управления заказом
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🚚 Отправлен", callback_data=f"order_shipped_{order_id}"),
+                InlineKeyboardButton(text="📬 Доставлен", callback_data=f"order_delivered_{order_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Отмена", callback_data=f"order_cancel_{order_id}"),
+            ]
+        ])
+        
         for admin_id in ADMIN_CHAT_IDS:
             try:
-                await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML")
+                await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML", reply_markup=keyboard)
             except Exception as e:
                 print(f"Error sending to {admin_id}: {e}")
     except Exception as e:
@@ -170,9 +183,10 @@ async def notify_order_paid(order_data: dict):
         if order_data.get('cdek_number'):
             cdek_info = f"\n📦 <b>Накладная СДЭК:</b> <code>{order_data['cdek_number']}</code>"
         
+        order_id = order_data['id']
         message = (
             "💰 <b>ЗАКАЗ ОПЛАЧЕН!</b> ✅\n\n"
-            f"📦 Заказ #{order_data['id']}\n"
+            f"📦 Заказ #{order_id}\n"
             f"👤 <b>Клиент:</b> {order_data.get('user_name', 'Не указано')}\n"
             f"📱 <b>Телефон:</b> {order_data.get('user_phone', 'Не указано')}"
             f"{delivery_info}{cdek_info}{payment_method}\n\n"
@@ -181,9 +195,20 @@ async def notify_order_paid(order_data: dict):
             f"⏰ {datetime.now(MSK).strftime('%d.%m.%Y %H:%M')} (МСК)"
         )
         
+        # Кнопки: оплачен → дальше отправить или отменить
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🚚 Отправлен", callback_data=f"order_shipped_{order_id}"),
+                InlineKeyboardButton(text="📬 Доставлен", callback_data=f"order_delivered_{order_id}"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Отмена", callback_data=f"order_cancel_{order_id}"),
+            ]
+        ])
+        
         for admin_id in ADMIN_CHAT_IDS:
             try:
-                await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML")
+                await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML", reply_markup=keyboard)
             except Exception as e:
                 print(f"Error sending paid notification to {admin_id}: {e}")
     except Exception as e:
@@ -317,6 +342,122 @@ async def cmd_start(message: types.Message):
         )
     except Exception as e:
         print(f"❌ Error sending start message: {e}")
+
+# === ОБРАБОТЧИКИ КНОПОК УПРАВЛЕНИЯ ЗАКАЗАМИ ===
+
+@dp.callback_query(F.data.startswith("order_shipped_"))
+async def handle_order_shipped(callback: types.CallbackQuery):
+    """Кнопка 🚚 Отправлен"""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет доступа", show_alert=True)
+        return
+    
+    order_id = int(callback.data.split("_")[-1])
+    await _change_order_status(callback, order_id, "shipped", "🚚 Отправлен")
+
+
+@dp.callback_query(F.data.startswith("order_delivered_"))
+async def handle_order_delivered(callback: types.CallbackQuery):
+    """Кнопка 📬 Доставлен"""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет доступа", show_alert=True)
+        return
+    
+    order_id = int(callback.data.split("_")[-1])
+    await _change_order_status(callback, order_id, "delivered", "📬 Доставлен")
+
+
+@dp.callback_query(F.data.startswith("order_cancel_"))
+async def handle_order_cancel(callback: types.CallbackQuery):
+    """Кнопка ❌ Отмена"""
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет доступа", show_alert=True)
+        return
+    
+    order_id = int(callback.data.split("_")[-1])
+    await _change_order_status(callback, order_id, "cancelled", "❌ Отменён")
+
+
+async def _change_order_status(callback: types.CallbackQuery, order_id: int, new_status: str, status_label: str):
+    """Общая логика смены статуса заказа через кнопку"""
+    from .database import SessionLocal
+    from . import models
+    from sqlalchemy.future import select
+    from sqlalchemy.orm import selectinload
+    
+    try:
+        async with SessionLocal() as db:
+            result = await db.execute(
+                select(models.Order)
+                .where(models.Order.id == order_id)
+                .options(
+                    selectinload(models.Order.items)
+                    .selectinload(models.OrderItem.product)
+                )
+            )
+            order = result.scalar_one_or_none()
+            
+            if not order:
+                await callback.answer(f"❌ Заказ #{order_id} не найден", show_alert=True)
+                return
+            
+            old_status = order.status
+            
+            if old_status == new_status:
+                await callback.answer(f"Заказ уже в статусе: {status_label}", show_alert=True)
+                return
+            
+            # Сохраняем данные ДО коммита
+            order_data = {
+                "id": order.id,
+                "user_name": order.user_name,
+                "user_phone": order.user_phone,
+                "user_telegram_id": order.user_telegram_id,
+                "total_amount": order.total_amount,
+                "delivery_address": order.delivery_address,
+            }
+            
+            # Меняем статус
+            order.status = new_status
+            await db.commit()
+        
+        # Уведомляем клиента
+        await notify_order_status_changed(order_data, old_status, new_status)
+        
+        # Обновляем сообщение — убираем кнопки и показываем новый статус
+        STATUS_LABELS = {
+            "pending": "⏳ Ожидает оплаты",
+            "paid": "✅ Оплачено",
+            "processing": "🔧 В обработке",
+            "shipped": "🚚 Отправлен",
+            "delivered": "📬 Доставлен",
+            "cancelled": "❌ Отменён",
+        }
+        
+        # Добавляем строку со статусом к оригинальному сообщению
+        old_text = callback.message.text or callback.message.caption or ""
+        updated_text = callback.message.html_text or old_text
+        
+        # Убираем старые кнопки, добавляем статус
+        new_text = updated_text + f"\n\n✅ <b>Статус обновлён:</b> {STATUS_LABELS.get(new_status, new_status)}"
+        
+        try:
+            await callback.message.edit_text(
+                text=new_text,
+                parse_mode="HTML",
+                reply_markup=None  # Убираем кнопки
+            )
+        except Exception as e:
+            print(f"Error editing message: {e}")
+        
+        await callback.answer(f"✅ Заказ #{order_id}: {status_label}", show_alert=True)
+        
+    except Exception as e:
+        print(f"❌ Error changing order status: {e}")
+        import traceback
+        traceback.print_exc()
+        await callback.answer(f"❌ Ошибка: {str(e)[:100]}", show_alert=True)
+
 
 @dp.callback_query(F.data == "requisites")
 async def show_requisites(callback: types.CallbackQuery):
