@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from . import models, schemas, crud, database, currency
 from .database import engine, sync_engine
-from .bot import notify_new_order
+from .bot import notify_new_order, notify_order_paid, notify_order_status_changed
 from .routers import marketplace, ai, favorites, payments, cdek, vehicles
 from .routers import admin as admin_router
 
@@ -1045,6 +1045,77 @@ async def create_order(
     )
     
     return db_order
+
+
+@app.patch("/orders/{order_id}/status")
+async def update_order_status(
+    order_id: int,
+    status_data: dict,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(database.get_db)
+):
+    """Обновить статус заказа + отправить уведомления"""
+    new_status = status_data.get("status")
+    
+    VALID_STATUSES = ["pending", "paid", "processing", "shipped", "delivered", "cancelled"]
+    if new_status not in VALID_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {VALID_STATUSES}")
+    
+    # Загружаем заказ с товарами
+    result = await db.execute(
+        select(models.Order)
+        .where(models.Order.id == order_id)
+        .options(
+            selectinload(models.Order.items)
+            .selectinload(models.OrderItem.product)
+        )
+    )
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    old_status = order.status
+    
+    if old_status == new_status:
+        return {"message": f"Status already '{new_status}'", "order_id": order_id}
+    
+    # Сохраняем данные ДО коммита
+    order_data = {
+        "id": order.id,
+        "user_name": order.user_name,
+        "user_phone": order.user_phone,
+        "user_telegram_id": order.user_telegram_id,
+        "total_amount": order.total_amount,
+        "delivery_address": order.delivery_address,
+        "delivery_type": order.delivery_type,
+        "cdek_pvz_address": order.cdek_pvz_address,
+        "cdek_number": order.cdek_number,
+        "items": [
+            {
+                "product_id": item.product_id,
+                "product_name": item.product.name if item.product else f"Товар #{item.product_id}",
+                "part_number": item.product.part_number if item.product else None,
+                "quantity": item.quantity,
+                "price_at_purchase": item.price_at_purchase,
+                "is_preorder": item.is_preorder
+            } for item in order.items
+        ],
+    }
+    
+    # Обновляем статус
+    order.status = new_status
+    await db.commit()
+    
+    # Отправляем уведомления
+    if new_status == "paid":
+        order_data["payment_method"] = "Ручная оплата"
+        background_tasks.add_task(notify_order_paid, order_data)
+    else:
+        background_tasks.add_task(notify_order_status_changed, order_data, old_status, new_status)
+    
+    return {"message": f"Status updated: {old_status} → {new_status}", "order_id": order_id}
+
 
 @app.post("/preorders/")
 async def create_preorder(

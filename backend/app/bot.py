@@ -119,6 +119,134 @@ async def notify_new_order(order_data: dict):
     except Exception as e:
         print(f"Error sending notification: {e}")
 
+
+async def notify_order_paid(order_data: dict):
+    """Отправляет красивое уведомление админам об оплате заказа"""
+    if not bot or not ADMIN_CHAT_IDS:
+        return
+    
+    try:
+        # Формируем список товаров с артикулами
+        items_list = ""
+        items = order_data.get('items', [])
+        
+        for item in items:
+            if isinstance(item, dict):
+                product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
+                part_number = item.get('part_number', '')
+                quantity = item.get('quantity', 1)
+                price = item.get('price_at_purchase', 0)
+                is_preorder = item.get('is_preorder', False)
+            else:
+                product_name = getattr(item, 'product_name', '?')
+                part_number = getattr(item, 'part_number', '')
+                quantity = getattr(item, 'quantity', 1)
+                price = getattr(item, 'price_at_purchase', 0)
+                is_preorder = getattr(item, 'is_preorder', False)
+            
+            preorder_mark = " ⏱️ <b>ПОД ЗАКАЗ</b>" if is_preorder else ""
+            article_str = f"\n     📋 Арт: <code>{part_number}</code>" if part_number else ""
+            items_list += f"  ✅ {product_name} — {quantity} шт × {price:,.0f} ₽{preorder_mark}{article_str}\n"
+        
+        if not items_list:
+            items_list = f"  {len(items)} товар(ов)\n"
+        
+        # Определяем способ оплаты
+        payment_method = order_data.get('payment_method', '')
+        if payment_method:
+            payment_method = f"\n💳 <b>Оплата:</b> {payment_method}"
+        
+        # Доставка
+        delivery_info = ""
+        delivery_type = order_data.get('delivery_type', '')
+        if delivery_type == 'cdek_pvz':
+            delivery_info = f"\n📍 <b>ПВЗ СДЭК:</b> {order_data.get('cdek_pvz_address', 'Не указан')}"
+        elif delivery_type == 'cdek_door':
+            delivery_info = f"\n🚚 <b>Курьер:</b> {order_data.get('delivery_address', 'Не указан')}"
+        elif order_data.get('delivery_address'):
+            delivery_info = f"\n📍 <b>Адрес:</b> {order_data.get('delivery_address', 'Не указан')}"
+
+        cdek_info = ""
+        if order_data.get('cdek_number'):
+            cdek_info = f"\n📦 <b>Накладная СДЭК:</b> <code>{order_data['cdek_number']}</code>"
+        
+        message = (
+            "💰 <b>ЗАКАЗ ОПЛАЧЕН!</b> ✅\n\n"
+            f"📦 Заказ #{order_data['id']}\n"
+            f"👤 <b>Клиент:</b> {order_data.get('user_name', 'Не указано')}\n"
+            f"📱 <b>Телефон:</b> {order_data.get('user_phone', 'Не указано')}"
+            f"{delivery_info}{cdek_info}{payment_method}\n\n"
+            f"🛒 <b>Товары:</b>\n{items_list}\n"
+            f"💵 <b>Итого:</b> {order_data['total_amount']:,.0f} ₽\n\n"
+            f"⏰ {datetime.now(MSK).strftime('%d.%m.%Y %H:%M')} (МСК)"
+        )
+        
+        for admin_id in ADMIN_CHAT_IDS:
+            try:
+                await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML")
+            except Exception as e:
+                print(f"Error sending paid notification to {admin_id}: {e}")
+    except Exception as e:
+        print(f"Error sending paid notification: {e}")
+
+
+async def notify_order_status_changed(order_data: dict, old_status: str, new_status: str):
+    """Уведомляет админов и клиента о смене статуса заказа"""
+    if not bot or not ADMIN_CHAT_IDS:
+        return
+    
+    STATUS_LABELS = {
+        "pending": "⏳ Ожидает оплаты",
+        "paid": "✅ Оплачено",
+        "processing": "🔧 В обработке",
+        "shipped": "🚚 Отправлен",
+        "delivered": "📬 Доставлен",
+        "cancelled": "❌ Отменён",
+    }
+    
+    old_label = STATUS_LABELS.get(old_status, old_status)
+    new_label = STATUS_LABELS.get(new_status, new_status)
+    
+    try:
+        # Уведомление админам
+        admin_msg = (
+            f"🔄 <b>Статус заказа изменён</b>\n\n"
+            f"📦 Заказ #{order_data['id']}\n"
+            f"👤 {order_data.get('user_name', 'Не указано')}\n"
+            f"📱 {order_data.get('user_phone', 'Не указано')}\n\n"
+            f"📊 {old_label} → {new_label}\n\n"
+            f"⏰ {datetime.now(MSK).strftime('%d.%m.%Y %H:%M')} (МСК)"
+        )
+        
+        for admin_id in ADMIN_CHAT_IDS:
+            try:
+                await bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode="HTML")
+            except Exception as e:
+                print(f"Error sending status notification to {admin_id}: {e}")
+        
+        # Уведомление клиенту
+        user_tg_id = order_data.get('user_telegram_id')
+        if user_tg_id:
+            user_msg = (
+                f"📦 <b>Обновление по заказу #{order_data['id']}</b>\n\n"
+                f"📊 Статус: {new_label}\n"
+            )
+            
+            if new_status == "shipped":
+                user_msg += f"\n🚚 Ваш заказ отправлен! Ожидайте доставку."
+            elif new_status == "delivered":
+                user_msg += f"\n📬 Ваш заказ доставлен! Спасибо за покупку! 🙏"
+            elif new_status == "cancelled":
+                user_msg += f"\n❌ Заказ отменён. Если есть вопросы — свяжитесь с нами."
+            
+            try:
+                await bot.send_message(chat_id=user_tg_id, text=user_msg, parse_mode="HTML")
+            except Exception as e:
+                print(f"Error sending status notification to user {user_tg_id}: {e}")
+    except Exception as e:
+        print(f"Error sending status notification: {e}")
+
+
 def get_main_keyboard(is_admin_user: bool = False):
     """Красивые инлайн кнопки"""
     buttons = [

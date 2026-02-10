@@ -19,7 +19,7 @@ import os
 
 from .. import models, schemas
 from ..database import get_db
-from ..bot import bot, ADMIN_CHAT_IDS
+from ..bot import bot, ADMIN_CHAT_IDS, notify_order_paid
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -434,11 +434,22 @@ async def paymaster_webhook(
                 order = result.scalar_one_or_none()
                 
                 if order:
+                    # Загружаем products для получения артикулов
+                    for item in order.items:
+                        if not item.product:
+                            prod_result = await db.execute(
+                                select(models.Product).where(models.Product.id == item.product_id)
+                            )
+                            item._product = prod_result.scalar_one_or_none()
+                    
                     # Сохраняем ВСЕ данные в простые Python объекты ДО коммита
                     order_items_data = [{
                         "product_id": item.product_id,
+                        "product_name": (item.product.name if item.product else None) or (getattr(item, '_product', None) and item._product.name) or f"Товар #{item.product_id}",
+                        "part_number": (item.product.part_number if item.product else None) or (getattr(item, '_product', None) and item._product.part_number) or "",
                         "quantity": item.quantity,
-                        "price_at_purchase": item.price_at_purchase
+                        "price_at_purchase": item.price_at_purchase,
+                        "is_preorder": item.is_preorder if hasattr(item, 'is_preorder') else False,
                     } for item in order.items]
                     
                     order_data = {
@@ -454,6 +465,7 @@ async def paymaster_webhook(
                         "cdek_city_name": order.cdek_city_name,
                         "cdek_pvz_code": order.cdek_pvz_code,
                         "cdek_pvz_address": order.cdek_pvz_address,
+                        "items": order_items_data,
                     }
                     
                     order.status = "paid"
@@ -535,18 +547,12 @@ async def paymaster_webhook(
                     except Exception as e:
                         print(f"❌ Failed to notify user: {e}")
                     
-                    # Уведомляем менеджеров
+                    # Уведомляем менеджеров красивым уведомлением
                     try:
-                        for admin_id in ADMIN_CHAT_IDS:
-                            await bot.send_message(
-                                chat_id=admin_id,
-                                text=f"🎉 <b>НОВЫЙ ОПЛАЧЕННЫЙ ЗАКАЗ!</b>\n\n"
-                                     f"📦 Заказ #{order_data['id']}\n"
-                                     f"👤 {order_data['user_name']} ({order_data['user_phone']})\n"
-                                     f"💰 {order_data['total_amount']:,.0f} ₽\n"
-                                     f"🚚 {order_data['cdek_city_name'] or 'Самовывоз'}{cdek_info}",
-                                parse_mode="HTML"
-                            )
+                        order_data['payment_method'] = 'PayMaster'
+                        if cdek_info:
+                            order_data['cdek_number'] = cdek_info.split(': ')[-1] if ': ' in cdek_info else None
+                        await notify_order_paid(order_data)
                     except Exception as e:
                         print(f"❌ Failed to notify admins: {e}")
                     
@@ -865,14 +871,35 @@ async def tbank_notification(
             order = result.scalar_one_or_none()
             
             if order:
+                # Загружаем товары для артикулов
+                for item in order.items:
+                    if not item.product:
+                        prod_result = await db.execute(
+                            select(models.Product).where(models.Product.id == item.product_id)
+                        )
+                        item._product = prod_result.scalar_one_or_none()
+                
                 # Сохраняем данные
+                order_items_data = [{
+                    "product_id": item.product_id,
+                    "product_name": (item.product.name if item.product else None) or (getattr(item, '_product', None) and item._product.name) or f"Товар #{item.product_id}",
+                    "part_number": (item.product.part_number if item.product else None) or (getattr(item, '_product', None) and item._product.part_number) or "",
+                    "quantity": item.quantity,
+                    "price_at_purchase": item.price_at_purchase,
+                    "is_preorder": item.is_preorder if hasattr(item, 'is_preorder') else False,
+                } for item in order.items]
+                
                 order_data = {
                     "id": order.id,
                     "user_name": order.user_name,
                     "user_phone": order.user_phone,
                     "user_telegram_id": order.user_telegram_id,
                     "total_amount": order.total_amount,
-                    "delivery_address": order.delivery_address
+                    "delivery_address": order.delivery_address,
+                    "delivery_type": order.delivery_type,
+                    "cdek_pvz_address": order.cdek_pvz_address,
+                    "items": order_items_data,
+                    "payment_method": "T-Bank",
                 }
                 
                 order.status = "paid"
@@ -891,17 +918,9 @@ async def tbank_notification(
                 except Exception as e:
                     print(f"❌ Failed to notify user: {e}")
                 
-                # Уведомляем админов
+                # Уведомляем админов красивым уведомлением
                 try:
-                    for admin_id in ADMIN_CHAT_IDS:
-                        await bot.send_message(
-                            chat_id=admin_id,
-                            text=f"🎉 <b>НОВЫЙ ОПЛАЧЕННЫЙ ЗАКАЗ (T-Bank)!</b>\n\n"
-                                 f"📦 Заказ #{order_data['id']}\n"
-                                 f"👤 {order_data['user_name']} ({order_data['user_phone']})\n"
-                                 f"💰 {order_data['total_amount']:,.0f} ₽",
-                            parse_mode="HTML"
-                        )
+                    await notify_order_paid(order_data)
                 except Exception as e:
                     print(f"❌ Failed to notify admins: {e}")
                 
