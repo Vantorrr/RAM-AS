@@ -68,22 +68,34 @@ async def notify_new_order(order_data: dict):
             # Обработка и словарей и Pydantic объектов
             if isinstance(item, dict):
                 product_name = item.get('product_name', f"Товар #{item.get('product_id', '?')}")
+                part_number = item.get('part_number', '')
                 quantity = item.get('quantity', 1)
                 price = item.get('price_at_purchase', 0)
                 is_preorder = item.get('is_preorder', False)
             else:
                 # Pydantic объект
                 product_name = getattr(item, 'product_name', f"Товар #{getattr(item, 'product_id', '?')}")
+                part_number = getattr(item, 'part_number', '')
                 quantity = getattr(item, 'quantity', 1)
                 price = getattr(item, 'price_at_purchase', 0)
                 is_preorder = getattr(item, 'is_preorder', False)
             
             preorder_mark = " ⏱️ <b>ПОД ЗАКАЗ (4-6 нед)</b>" if is_preorder else ""
-            items_list += f"  • {product_name} — {quantity} шт × {price:,.0f} ₽{preorder_mark}\n"
+            article_str = f" (арт. {part_number})" if part_number else ""
+            items_list += f"  • {product_name}{article_str} — {quantity} шт × {price:,.0f} ₽{preorder_mark}\n"
         
         # Если список товаров пустой, показываем только количество
         if not items_list:
             items_list = f"  {len(items)} товар(ов)\n"
+        
+        # Статус оплаты
+        status = order_data.get('status', 'pending')
+        if status == 'paid':
+            payment_status = "✅ <b>Оплачено</b>"
+        elif status == 'pending':
+            payment_status = "⏳ Ожидает оплаты"
+        else:
+            payment_status = f"ℹ️ {status}"
         
         message = (
             "🔔 <b>НОВЫЙ ЗАКАЗ!</b>\n\n"
@@ -92,7 +104,8 @@ async def notify_new_order(order_data: dict):
             f"📱 Телефон: {order_data.get('user_phone', 'Не указано')}\n"
             f"📍 Адрес: {order_data.get('delivery_address', 'Не указано')}\n\n"
             f"🛒 <b>Товары:</b>\n{items_list}\n"
-            f"💰 <b>Итого:</b> {order_data['total_amount']:,.0f} ₽\n\n"
+            f"💰 <b>Итого:</b> {order_data['total_amount']:,.0f} ₽\n"
+            f"💳 <b>Статус:</b> {payment_status}\n\n"
             f"⏰ Время: {order_data.get('created_at', 'сейчас')}"
         )
         for admin_id in ADMIN_CHAT_IDS:

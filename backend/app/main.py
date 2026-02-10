@@ -1029,10 +1029,12 @@ async def create_order(
             "user_phone": db_order.user_phone,
             "delivery_address": db_order.delivery_address,
             "total_amount": db_order.total_amount,
+            "status": db_order.status,
             "items": [
                 {
                     "product_id": item.product_id,
                     "product_name": item.product.name if item.product else f"Товар #{item.product_id}",
+                    "part_number": item.product.part_number if item.product else None,
                     "quantity": item.quantity,
                     "price_at_purchase": item.price_at_purchase,
                     "is_preorder": item.is_preorder

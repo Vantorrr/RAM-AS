@@ -580,10 +580,12 @@ async def create_order(items: List[Dict[str, int]], address: str = "Не ука�
                 "user_phone": phone,
                 "delivery_address": address,
                 "total_amount": total_amount,
+                "status": "pending",
                 "items": [
                     {
                         "product_id": i["product"].id,
                         "product_name": i["product"].name,
+                        "part_number": i["product"].part_number,
                         "quantity": i["quantity"],
                         "price_at_purchase": i["price"],
                         "is_preorder": i["product"].is_preorder
